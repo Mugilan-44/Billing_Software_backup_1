@@ -1,0 +1,76 @@
+import Expense from '../models/Expense.js';
+import Invoice from '../models/Invoice.js';
+
+export const createExpense = async (req, res) => {
+    try {
+        const payload = { ...req.body };
+        if (req.user.role === 'ADMIN') {
+            payload.companyId = req.user.companyId;
+            payload.branchId = req.user.branchId;
+        }
+        const expense = await Expense.create(payload);
+        res.status(201).json({ success: true, data: expense });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+export const getExpenses = async (req, res) => {
+    try {
+        let query = {};
+        if (req.user.role === 'ADMIN') {
+            query.companyId = req.user.companyId;
+            query.branchId = req.user.branchId;
+        }
+        const expenses = await Expense.find(query).populate('vendorId', 'companyName').sort({ date: -1 });
+        res.json({ success: true, count: expenses.length, data: expenses });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteExpense = async (req, res) => {
+    try {
+        const expense = await Expense.findByIdAndDelete(req.params.id);
+        if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+        res.json({ success: true, data: {} });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getVehicleAggregations = async (req, res) => {
+    try {
+        // Aggregate income from non-draft invoices per vehicle
+        const incomeAgg = await Invoice.aggregate([
+            { $match: { "transportDetails.vehicleNumber": { $exists: true, $ne: "" }, status: { $ne: 'Draft' } } },
+            { $group: { _id: "$transportDetails.vehicleNumber", totalIncome: { $sum: "$grandTotal" } } }
+        ]);
+
+        // Aggregate expenses per vehicle
+        const expenseAgg = await Expense.aggregate([
+            { $match: { vehicleNumber: { $exists: true, $ne: "" } } },
+            { $group: { _id: "$vehicleNumber", totalExpense: { $sum: "$amount" } } }
+        ]);
+
+        // Merge them
+        const vehicles = {};
+
+        incomeAgg.forEach(i => {
+            vehicles[i._id] = { vehicleNumber: i._id, totalIncome: i.totalIncome, totalExpense: 0, profit: i.totalIncome };
+        });
+
+        expenseAgg.forEach(e => {
+            if (vehicles[e._id]) {
+                vehicles[e._id].totalExpense = e.totalExpense;
+                vehicles[e._id].profit = vehicles[e._id].totalIncome - e.totalExpense;
+            } else {
+                vehicles[e._id] = { vehicleNumber: e._id, totalIncome: 0, totalExpense: e.totalExpense, profit: -e.totalExpense };
+            }
+        });
+
+        res.json({ success: true, data: Object.values(vehicles) });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
