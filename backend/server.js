@@ -42,14 +42,25 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+        console.log(`[CORS Audit] Incoming Origin: ${origin || 'No Origin'}`);
+        if (!origin) {
             return callback(null, true);
-        } else {
-            return callback(new Error('Not allowed by CORS'));
         }
+
+        const isExplicitlyAllowed = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
+        const isLocalDev = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+        const isVercel = origin.endsWith('.vercel.app') || /^https:\/\/.*\.vercel\.app$/.test(origin);
+
+        if (isExplicitlyAllowed || isLocalDev || isVercel) {
+            console.log(`[CORS Audit] Allowed Origin: ${origin}`);
+            return callback(null, true);
+        }
+
+        console.warn(`[CORS Audit] Blocked Origin: ${origin}`);
+        return callback(null, false);
     },
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
 app.use(helmet());
 app.use(morgan('dev'));
