@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import axios from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import { FileText, CreditCard, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';

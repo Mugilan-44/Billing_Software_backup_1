@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { Plus, Calculator, Settings, ReceiptText } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 

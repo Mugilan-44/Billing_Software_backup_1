@@ -1,7 +1,7 @@
 import { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import {
     Search, LogOut, ShieldCheck, Sliders,
     ChevronDown, User, GitBranch, CreditCard, Menu, Sparkles, LifeBuoy

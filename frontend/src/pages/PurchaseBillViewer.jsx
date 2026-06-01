@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Printer, Edit, Trash2, Mail, Copy } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { useToast } from '../context/ToastContext';
@@ -67,7 +68,7 @@ const PurchaseBillViewer = () => {
                 || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
                 || '';
 
-            const response = await fetch(`/api/purchase-bills/${id}/download?token=${token}`, {
+            const response = await fetch(`${API_URL}/api/purchase-bills/${id}/download?token=${token}`, {
                 method: 'GET',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             });

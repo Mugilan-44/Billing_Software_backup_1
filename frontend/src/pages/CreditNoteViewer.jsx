@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Mail, Printer, Palette, Copy, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
@@ -79,7 +80,7 @@ const CreditNoteViewer = () => {
                 || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
                 || '';
 
-            const response = await fetch(`/api/credit-notes/${id}/download?token=${token}&color=${encodeURIComponent(accentColor)}`, {
+            const response = await fetch(`${API_URL}/api/credit-notes/${id}/download?token=${token}&color=${encodeURIComponent(accentColor)}`, {
                 method: 'GET',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             });

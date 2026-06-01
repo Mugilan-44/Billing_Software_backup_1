@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { PieChart, TrendingUp, TrendingDown, IndianRupee, Printer, Percent, ShieldCheck, Calculator } from 'lucide-react';
 
 const GstSummary = () => {

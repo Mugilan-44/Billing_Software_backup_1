@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, FileCheck, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
@@ -55,7 +56,7 @@ const SalesOrderViewer = () => {
     const handleDownloadPDF = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`/api/sales-orders/${id}/download?token=${token}`, {
+            const response = await fetch(`${API_URL}/api/sales-orders/${id}/download?token=${token}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -99,14 +100,14 @@ const SalesOrderViewer = () => {
     };
 
     const handleShareEmail = () => {
-        const link = `http://localhost:5173/public/order/${id}`;
+        const link = `${window.location.origin}/public/order/${id}`;
         const subject = `Sales Order ${orderData.order.orderNumber} from ${orderData.settings?.companyName || 'Billing System'}`;
         const body = `Hello ${orderData.order.customerId?.companyName || 'Customer'},\n\nPlease find our sales order (${orderData.order.orderNumber}) for the amount of ₹${orderData.order.grandTotal.toFixed(2)}.\n\nYou can view it here: ${link}\n\nBest regards,\n${orderData.settings?.companyName || 'Sales Team'}`;
         window.location.href = `mailto:${orderData.order.customerId?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
     const handleShareWhatsApp = () => {
-        const link = `http://localhost:5173/public/order/${id}`;
+        const link = `${window.location.origin}/public/order/${id}`;
         const text = `Hello ${orderData?.order?.customerId?.companyName || 'Customer'},\n\nYour Sales Order (${orderData?.order?.orderNumber}) for ₹${(orderData?.order?.grandTotal || 0).toFixed(2)} is ready.\n\nView here: ${link}\n\nThank you!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };

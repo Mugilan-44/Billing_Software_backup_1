@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { Download, Printer, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import {
     COLOR_THEMES,
@@ -51,7 +52,7 @@ const PublicInvoiceViewer = () => {
     const handleDownloadPDF = async () => {
         setDownloading(true);
         try {
-            const response = await fetch(`/api/public/invoices/${token}/download`, {
+            const response = await fetch(`${API_URL}/api/public/invoices/${token}/download`, {
                 method: 'GET',
             });
 

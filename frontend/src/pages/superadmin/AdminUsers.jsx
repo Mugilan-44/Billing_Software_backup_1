@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
     Plus, Search, ToggleLeft, ToggleRight, Users, ShieldAlert,

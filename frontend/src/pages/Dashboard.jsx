@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { AuthContext } from '../context/AuthContext';
 import {
     Plus, Info, IndianRupee, TrendingUp, AlertTriangle, FileText,

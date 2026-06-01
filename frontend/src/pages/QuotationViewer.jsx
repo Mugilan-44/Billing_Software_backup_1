@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
@@ -57,7 +58,7 @@ const QuotationViewer = () => {
     const handleDownloadPDF = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`/api/quotations/${id}/download?token=${token}&template=${template}`, {
+            const response = await fetch(`${API_URL}/api/quotations/${id}/download?token=${token}&template=${template}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -101,13 +102,13 @@ const QuotationViewer = () => {
     };
 
     const handleShareWhatsApp = () => {
-        const link = `http://localhost:5173/public/quotation/${id}`;
+        const link = `${window.location.origin}/public/quotation/${id}`;
         const text = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nHere is your latest Quotation (${quoteData.quotation.quoteNumber}) for ₹${quoteData.quotation.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleShareEmail = () => {
-        const link = `http://localhost:5173/public/quotation/${id}`;
+        const link = `${window.location.origin}/public/quotation/${id}`;
         const subject = `Quotation ${quoteData.quotation.quoteNumber} from ${quoteData.settings?.companyName || 'Billing System'}`;
         const body = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nPlease find our quotation (${quoteData.quotation.quoteNumber}) for the amount of ₹${quoteData.quotation.grandTotal.toFixed(2)}.\n\nYou can view and download it here: ${link}\n\nBest regards,\n${quoteData.settings?.companyName || 'Sales Team'}`;
         window.location.href = `mailto:${quoteData.quotation.customerId?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

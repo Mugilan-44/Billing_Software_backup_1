@@ -25,7 +25,7 @@ const Login = () => {
                     if (container && container.childNodes.length === 0) {
                         const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
                         recaptchaWidgetRef.current = window.grecaptcha.render('recaptcha-container', {
-                            sitekey: '6LdY1wYtAAAAAIuHG5a67bKchmEpvpFpZKHKjRNz',
+                            sitekey: import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LdY1wYtAAAAAIuHG5a67bKchmEpvpFpZKHKjRNz',
                             theme: isDark ? 'dark' : 'light',
                             callback: (token) => {
                                 setRecaptchaToken(token);

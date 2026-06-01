@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { Calendar, ShieldCheck, Building2, MapPin, Phone, Mail, Award, Clock } from 'lucide-react';
 
 const SubscriptionPage = () => {

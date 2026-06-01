@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
+import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, Trash2, Palette, FileText, Copy } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
@@ -1117,7 +1118,7 @@ const InvoiceViewer = () => {
                 || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
                 || '';
 
-            const response = await fetch(`/api/invoices/${id}/download?token=${token}&template=${template}&color=${encodeURIComponent(accentColor)}`, {
+            const response = await fetch(`${API_URL}/api/invoices/${id}/download?token=${token}&template=${template}&color=${encodeURIComponent(accentColor)}`, {
                 method: 'GET',
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             });

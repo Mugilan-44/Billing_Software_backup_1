@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Calculator, Tag, Save, Info, Calendar, DollarSign, User, FileText, CreditCard } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';

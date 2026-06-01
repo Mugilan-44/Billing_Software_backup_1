@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Share2, ClipboardList } from 'lucide-react';
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useForm } from 'react-hook-form';
 import { Settings as SettingsIcon, Save, Image as ImageIcon, CreditCard, QrCode, Building2, MapPin, Hash, Sun, Moon, Palette } from 'lucide-react';
 

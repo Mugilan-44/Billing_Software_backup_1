@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Download, Share2 } from 'lucide-react';
 
@@ -31,7 +31,7 @@ const Invoices = () => {
     };
 
     const handleShareWhatsApp = (invoice) => {
-        const link = `http://localhost:5173/public/invoice/${invoice._id}`;
+        const link = `${window.location.origin}/public/invoice/${invoice._id}`;
         const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${invoice.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Truck, Plus, Trash2, ArrowLeft, Save, Info, User, Navigation } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';

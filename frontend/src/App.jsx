@@ -4,7 +4,8 @@ import { useContext, useEffect } from 'react';
 import { AuthContext } from './context/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider, useToast } from './context/ToastContext';
-import axios from 'axios';
+import axios from './utils/api';
+import './utils/api';
 
 const AxiosInterceptor = ({ children }) => {
   const { showToast } = useToast();
