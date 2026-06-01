@@ -136,10 +136,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Unified login endpoint
-    const loginUser = async (email, password, recaptchaToken) => {
+    const loginUser = async (email, password) => {
         delete api.defaults.headers.common['Authorization'];
         delete axios.defaults.headers.common['Authorization'];
-        const res = await api.post('/api/auth/login', { email, password, recaptchaToken });
+        const res = await api.post('/api/auth/login', { email, password });
         if (res.data.success) {
             _setSession(res.data.data);
             return res.data;

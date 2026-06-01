@@ -11,56 +11,6 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [recaptchaToken, setRecaptchaToken] = useState('');
-    const recaptchaWidgetRef = useRef(null);
-
-    useEffect(() => {
-        let isMounted = true;
-        let intervalId;
-
-        const renderWidget = () => {
-            if (window.grecaptcha && window.grecaptcha.render && isMounted) {
-                try {
-                    const container = document.getElementById('recaptcha-container');
-                    if (container && container.childNodes.length === 0) {
-                        const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
-                        recaptchaWidgetRef.current = window.grecaptcha.render('recaptcha-container', {
-                            sitekey: import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LdY1wYtAAAAAIuHG5a67bKchmEpvpFpZKHKjRNz',
-                            theme: isDark ? 'dark' : 'light',
-                            callback: (token) => {
-                                setRecaptchaToken(token);
-                                setError('');
-                            },
-                            'expired-callback': () => {
-                                setRecaptchaToken('');
-                            },
-                            'error-callback': () => {
-                                setRecaptchaToken('');
-                            }
-                        });
-                    }
-                } catch (err) {
-                    console.error('Error rendering reCAPTCHA:', err);
-                }
-            }
-        };
-
-        if (window.grecaptcha && window.grecaptcha.render) {
-            renderWidget();
-        } else {
-            intervalId = setInterval(() => {
-                if (window.grecaptcha && window.grecaptcha.render) {
-                    renderWidget();
-                    clearInterval(intervalId);
-                }
-            }, 250);
-        }
-
-        return () => {
-            isMounted = false;
-            if (intervalId) clearInterval(intervalId);
-        };
-    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -68,15 +18,11 @@ const Login = () => {
             setError('Please enter your email and password.');
             return;
         }
-        if (!recaptchaToken) {
-            setError('Please complete the reCAPTCHA verification.');
-            return;
-        }
         setLoading(true);
         setError('');
 
         try {
-            const res = await loginUser(email.trim(), password, recaptchaToken);
+            const res = await loginUser(email.trim(), password);
             sessionStorage.setItem('justLoggedIn', 'true');
             const userRole = res.data.user?.role;
             if (userRole === 'SUPER_ADMIN') {
@@ -88,10 +34,6 @@ const Login = () => {
             setError(err.response?.data?.message || err.message || 'Login failed. Please check your credentials.');
             setLoading(false);
             setPassword('');
-            if (window.grecaptcha && recaptchaWidgetRef.current !== null) {
-                window.grecaptcha.reset(recaptchaWidgetRef.current);
-                setRecaptchaToken('');
-            }
         }
     };
 
@@ -149,10 +91,6 @@ const Login = () => {
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="flex justify-center my-4">
-                            <div id="recaptcha-container"></div>
                         </div>
 
                         <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] mt-6">

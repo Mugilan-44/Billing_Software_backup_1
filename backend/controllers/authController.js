@@ -52,37 +52,11 @@ const buildUserPayload = (user, company, subscription) => {
 // POST /api/auth/login
 export const login = async (req, res) => {
     try {
-        const { email, recaptchaToken } = req.body;
+        const { email } = req.body;
         const password = req.body.password?.trim();
 
         if (!email || !password) {
             return res.status(400).json({ success: false, message: 'Email and password are required' });
-        }
-
-        // Verify Google reCAPTCHA v2 token
-        if (!recaptchaToken) {
-            return res.status(400).json({ success: false, message: 'reCAPTCHA verification is required.' });
-        }
-
-        try {
-            const verificationUrl = 'https://www.google.com/recaptcha/api/siteverify';
-            const verifyResponse = await fetch(verificationUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    secret: process.env.RECAPTCHA_SECRET_KEY,
-                    response: recaptchaToken,
-                    remoteip: req.ip || req.headers['x-forwarded-for'] || ''
-                })
-            });
-            const verificationData = await verifyResponse.json();
-            if (!verificationData.success) {
-                console.warn('reCAPTCHA verification failed:', verificationData);
-                return res.status(400).json({ success: false, message: 'reCAPTCHA verification failed. Please try again.' });
-            }
-        } catch (verifyError) {
-            console.error('Error during reCAPTCHA verification request:', verifyError);
-            return res.status(500).json({ success: false, message: 'Internal server error verifying reCAPTCHA' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
