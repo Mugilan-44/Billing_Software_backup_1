@@ -209,7 +209,7 @@ const Topbar = () => {
                                     className="dropdown-item"
                                 >
                                     <Sliders size={15} className="text-slate-400" />
-                                    Company Preferences
+                                    Company Settings
                                 </Link>
                                 <Link
                                     to="/settings/subscription"

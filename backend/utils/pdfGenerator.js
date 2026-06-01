@@ -617,14 +617,19 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
             const rightColValX = 460;
             const rightColWidth = 85;
 
+            const subTotalVal = Number(invoice.subtotal ?? invoice.subTotal ?? 0);
+            const discountVal = Number(invoice.discount ?? 0);
+            const grandTotalVal = Number(invoice.grandTotal ?? 0);
+            const amountPaidVal = Number(invoice.amountPaid ?? 0);
+
             doc.fillColor('black').font(fontBold).fontSize(9);
             doc.text('Sub Total:', rightColX, rightY);
-            doc.font(fontRegular).text(invoice.subTotal.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
+            doc.font(fontRegular).text(subTotalVal.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
             rightY += 15;
 
-            if (invoice.discount > 0) {
+            if (discountVal > 0) {
                 doc.font(fontBold).text('Discount:', rightColX, rightY);
-                doc.font(fontRegular).text(`- ${invoice.discount.toFixed(2)}`, rightColValX, rightY, { align: 'right', width: rightColWidth });
+                doc.font(fontRegular).text(`- ${discountVal.toFixed(2)}`, rightColValX, rightY, { align: 'right', width: rightColWidth });
                 rightY += 15;
             }
 
@@ -660,20 +665,21 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
             rightY += 5;
             doc.rect(rightColX - 10, rightY - 5, 205, 25).fill(isMinimal ? '#f8fafc' : '#f1f5f9');
             doc.fillColor('#0f172a').font(fontBold).fontSize(11).text('Grand Total:', rightColX, rightY);
-            doc.text(`${settings?.currency?.symbol || 'Rs.'} ${invoice.grandTotal.toFixed(2)}`, rightColValX, rightY, { align: 'right', width: rightColWidth });
+            doc.text(`${settings?.currency?.symbol || 'Rs.'} ${grandTotalVal.toFixed(2)}`, rightColValX, rightY, { align: 'right', width: rightColWidth });
             rightY += 25;
 
             // Amount Paid & Balance Due
-            if (invoice.amountPaid > 0) {
+            if (amountPaidVal > 0) {
                 doc.fillColor('#059669').font(fontBold).fontSize(9).text('Amount Received:', rightColX, rightY);
-                doc.font(fontRegular).text(invoice.amountPaid.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
+                doc.font(fontRegular).text(amountPaidVal.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
                 rightY += 15;
             }
 
-            const balanceDue = invoice.balanceDue ?? (invoice.grandTotal - (invoice.amountPaid || 0));
-            if (balanceDue > 0) {
+            const balanceDue = invoice.balanceDue ?? (grandTotalVal - amountPaidVal);
+            const balanceDueVal = Number(balanceDue ?? 0);
+            if (balanceDueVal > 0) {
                 doc.fillColor('#dc2626').font(fontBold).fontSize(9).text('Balance Due:', rightColX, rightY);
-                doc.font(fontRegular).text(balanceDue.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
+                doc.font(fontRegular).text(balanceDueVal.toFixed(2), rightColValX, rightY, { align: 'right', width: rightColWidth });
                 rightY += 15;
             }
 
