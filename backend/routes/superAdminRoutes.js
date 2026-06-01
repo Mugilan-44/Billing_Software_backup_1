@@ -2,7 +2,9 @@ import express from 'express';
 import {
     createCompany, getCompanies, getCompanyById, updateCompany, deleteCompany,
     createAdmin, getAdmins, toggleUserActive, getSystemStats,
-    createSuperAdmin, getSuperAdmins, updateAdminPermissions
+    createSuperAdmin, getSuperAdmins, updateAdminPermissions,
+    extendSubscription, toggleCompanyStatus, resetUserPassword, deleteUser,
+    createAdminAndCompany, updateAdminAndCompany
 } from '../controllers/superAdminController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -29,12 +31,20 @@ router.route('/companies/:id')
     .put(updateCompany)
     .delete(deleteCompany);
 
+router.post('/companies/:id/extend', extendSubscription);
+router.patch('/companies/:id/toggle-status', toggleCompanyStatus);
+
 // Admin user management
 router.route('/admins')
     .get(getAdmins)
     .post(createAdmin);
 
+router.post('/admins/create-combined', createAdminAndCompany);
+router.put('/admins/:id/update-combined', updateAdminAndCompany);
+
 router.patch('/admins/:id/permissions', updateAdminPermissions);
 router.patch('/users/:id/toggle', toggleUserActive);
+router.post('/users/:id/reset-password', resetUserPassword);
+router.delete('/users/:id', deleteUser);
 
 export default router;

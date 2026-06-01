@@ -1,100 +1,82 @@
 import mongoose from 'mongoose';
 
+const quotationLineItemSchema = new mongoose.Schema({
+  itemId:          { type: mongoose.Schema.Types.ObjectId, ref: 'Item' },
+  name:            String,
+  hsnCode:         String,
+  quantity:        { type: Number, required: true, min: 1 },
+  rate:            { type: Number, required: true, min: 0 },
+  discountPercent: { type: Number, default: 0 },
+  gstPercent:      { type: Number, default: 0 },
+  // Legacy alias
+  gstPercentage:   { type: Number, default: 0 },
+  amount:          Number,
+}, { _id: false });
+
 const quotationSchema = new mongoose.Schema({
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
-    quoteNumber: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    customerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Customer',
-        required: true
-    },
-    items: [{
-        itemId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Item',
-            required: true
-        },
-        name: String,
-        quantity: {
-            type: Number,
-            required: true,
-            min: 1
-        },
-        rate: {
-            type: Number,
-            required: true,
-            min: 0
-        },
-        gstPercentage: {
-            type: Number,
-            required: true,
-            min: 0
-        }
-    }],
-    discount: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
-    subTotal: {
-        type: Number,
-        required: true
-    },
-    taxTotal: {
-        type: Number,
-        required: true
-    },
-    grandTotal: {
-        type: Number,
-        required: true
-    },
-    validityDate: {
-        type: Date
-    },
-    quoteDate: {
-        type: Date,
-        default: Date.now
-    },
-    referenceNumber: {
-        type: String
-    },
-    salesperson: {
-        type: String
-    },
-    projectName: {
-        type: String
-    },
-    subject: {
-        type: String
-    },
-    adjustment: {
-        type: Number,
-        default: 0
-    },
-    tdsPercentage: {
-        type: Number,
-        default: 0
-    },
-    tdsAmount: {
-        type: Number,
-        default: 0
-    },
-    status: {
-        type: String,
-        enum: ['Draft', 'Sent', 'Accepted', 'Rejected', 'Converted'],
-        default: 'Draft'
-    },
-    notes: {
-        type: String
-    },
-    termsAndConditions: {
-        type: String
-    }
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
+  branchId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
+
+  quoteNumber: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
+    required: true,
+  },
+
+  // New canonical line items
+  lineItems: [quotationLineItemSchema],
+
+  // Legacy items array (old code)
+  items: [{
+    itemId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
+    name:          String,
+    quantity:      { type: Number, required: true, min: 1 },
+    rate:          { type: Number, required: true, min: 0 },
+    gstPercentage: { type: Number, required: true, min: 0 },
+    _id: false,
+  }],
+
+  discount:    { type: Number, default: 0, min: 0 },
+  subtotal:    { type: Number },
+  subTotal:    { type: Number },  // legacy alias
+  taxTotal:    { type: Number },
+  grandTotal:  { type: Number },
+
+  // Canonical date fields
+  date:       { type: Date, default: Date.now },
+  validUntil: { type: Date },
+
+  // Legacy date fields
+  quoteDate:      { type: Date, default: Date.now },
+  validityDate:   { type: Date },
+
+  referenceNumber:    String,
+  salesperson:        String,
+  projectName:        String,
+  subject:            String,
+  adjustment:         { type: Number, default: 0 },
+  tdsPercentage:      { type: Number, default: 0 },
+  tdsAmount:          { type: Number, default: 0 },
+
+  status: {
+    type: String,
+    enum: ['Draft', 'Sent', 'Accepted', 'Rejected', 'Converted'],
+    default: 'Draft',
+  },
+
+  convertedToOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesOrder' },
+
+  notes:              String,
+  termsAndConditions: String,
+  includeTerms:       { type: Boolean, default: true },
+  includeSignature:   { type: Boolean, default: false },
+  includeBankDetails: { type: Boolean, default: true },
+  includeUpiQr:       { type: Boolean, default: true },
 }, { timestamps: true });
 
 const Quotation = mongoose.model('Quotation', quotationSchema);

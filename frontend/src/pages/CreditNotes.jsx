@@ -92,7 +92,7 @@ const CreditNotes = () => {
                                 </tr>
                             ) : (
                                 notes.map((note) => (
-                                    <tr key={note._id} className="hover:bg-red-50/30 transition-colors group cursor-pointer" onClick={() => navigate(`/credit-notes/${note._id}/edit`)}>
+                                    <tr key={note._id} className="hover:bg-red-50/30 transition-colors group cursor-pointer" onClick={() => navigate(`/credit-notes/${note._id}`)}>
                                         <td className="px-6 py-5 text-sm font-bold text-slate-700">
                                             {new Date(note.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </td>

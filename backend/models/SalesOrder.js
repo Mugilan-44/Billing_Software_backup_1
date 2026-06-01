@@ -1,73 +1,80 @@
 import mongoose from 'mongoose';
 
+const salesOrderLineItemSchema = new mongoose.Schema({
+  itemId:          { type: mongoose.Schema.Types.ObjectId, ref: 'Item' },
+  name:            String,
+  hsnCode:         String,
+  quantity:        { type: Number, required: true, min: 1 },
+  rate:            { type: Number, required: true, min: 0 },
+  discountPercent: { type: Number, default: 0 },
+  gstPercent:      { type: Number, default: 0 },
+  // Legacy alias
+  gstPercentage:   { type: Number, default: 0 },
+  amount:          Number,
+}, { _id: false });
+
 const salesOrderSchema = new mongoose.Schema({
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
-    orderNumber: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    customerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Customer',
-        required: true
-    },
-    quotationId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Quotation' // Optional link
-    },
-    items: [{
-        itemId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Item',
-            required: true
-        },
-        name: String,
-        quantity: {
-            type: Number,
-            required: true,
-            min: 1
-        },
-        rate: {
-            type: Number,
-            required: true,
-            min: 0
-        },
-        gstPercentage: {
-            type: Number,
-            required: true,
-            min: 0
-        }
-    }],
-    discount: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
-    subTotal: {
-        type: Number,
-        required: true
-    },
-    taxTotal: {
-        type: Number,
-        required: true
-    },
-    grandTotal: {
-        type: Number,
-        required: true
-    },
-    status: {
-        type: String,
-        enum: ['Pending', 'Confirmed', 'Delivered', 'Cancelled', 'Invoiced'],
-        default: 'Pending'
-    },
-    expectedDeliveryDate: {
-        type: Date
-    },
-    notes: {
-        type: String
-    }
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
+  branchId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
+
+  orderNumber: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
+    required: true,
+  },
+
+  // New canonical line items
+  lineItems: [salesOrderLineItemSchema],
+
+  // Legacy items array
+  items: [{
+    itemId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
+    name:          String,
+    quantity:      { type: Number, required: true, min: 1 },
+    rate:          { type: Number, required: true, min: 0 },
+    gstPercentage: { type: Number, required: true, min: 0 },
+    _id: false,
+  }],
+
+  discount:   { type: Number, default: 0, min: 0 },
+  subtotal:   { type: Number },
+  subTotal:   { type: Number },  // legacy alias
+  taxTotal:   { type: Number },
+  grandTotal: { type: Number },
+
+  date: { type: Date, default: Date.now },
+  expectedDeliveryDate: { type: Date },
+
+  status: {
+    type: String,
+    enum: ['Pending', 'Confirmed', 'Processing', 'Dispatched', 'Delivered', 'Invoiced', 'Cancelled'],
+    default: 'Confirmed',
+  },
+  deliveryStatus: {
+    type: String,
+    enum: ['Pending', 'Partial', 'Delivered'],
+    default: 'Pending',
+  },
+
+  // Canonical link fields
+  linkedQuotationId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation' },
+  convertedToInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
+
+  // Legacy link field
+  quotationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation' },
+
+  buyersRef: { type: String, trim: true },
+  modeOfPayment: { type: String, trim: true },
+  notes: String,
+  includeTerms:       { type: Boolean, default: true },
+  includeSignature:   { type: Boolean, default: false },
+  includeBankDetails: { type: Boolean, default: true },
+  includeUpiQr:       { type: Boolean, default: true },
 }, { timestamps: true });
 
 const SalesOrder = mongoose.model('SalesOrder', salesOrderSchema);

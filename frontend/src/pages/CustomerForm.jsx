@@ -177,24 +177,40 @@ const CustomerForm = () => {
     };
 
     const handleContactPersonChange = (index, field, value) => {
-        const updated = [...form.contactPersons];
-        updated[index] = { ...updated[index], [field]: value };
-        setForm(prev => ({ ...prev, contactPersons: updated }));
+        const updated = [...(form?.contactPersons || [])];
+        if (updated[index]) {
+            updated[index] = { ...updated[index], [field]: value };
+            setForm(prev => ({ ...prev, contactPersons: updated }));
+        }
     };
 
     const addContactPerson = () => {
-        setForm(prev => ({ ...prev, contactPersons: [...prev.contactPersons, { ...emptyContactPerson }] }));
+        setForm(prev => ({ ...prev, contactPersons: [...(prev?.contactPersons || []), { ...emptyContactPerson }] }));
     };
 
     const removeContactPerson = (index) => {
-        const updated = form.contactPersons.filter((_, i) => i !== index);
+        const updated = (form?.contactPersons || []).filter((_, i) => i !== index);
         setForm(prev => ({ ...prev, contactPersons: updated.length > 0 ? updated : [{ ...emptyContactPerson }] }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.companyName.trim()) {
-            setSaveError('Company Name is required.');
+        
+        // Auto-fill companyName from name for Individual customers
+        const submitForm = { ...form };
+        if (submitForm.customerType === 'Individual' && !submitForm.companyName?.trim()) {
+            const fullName = [submitForm.firstName, submitForm.lastName].filter(Boolean).join(' ');
+            if (!fullName.trim()) {
+                setSaveError('Please enter at least a first name for Individual customers.');
+                return;
+            }
+            submitForm.companyName = fullName;
+            submitForm.displayName = fullName;
+            setForm(prev => ({ ...prev, companyName: fullName, displayName: fullName }));
+        }
+        
+        if (submitForm.customerType === 'Business' && !submitForm.companyName?.trim()) {
+            setSaveError('Company Name is required for Business customers.');
             return;
         }
         setLoading(true);
@@ -202,10 +218,10 @@ const CustomerForm = () => {
         try {
             let savedCustomerId = id;
             if (isEdit) {
-                await axios.put(`/api/customers/${id}`, form);
+                await axios.put(`/api/customers/${id}`, submitForm);
                 setSaveSuccess('Customer updated successfully!');
             } else {
-                const res = await axios.post('/api/customers', form);
+                const res = await axios.post('/api/customers', submitForm);
                 savedCustomerId = res.data.data._id;
                 setSaveSuccess('Customer created successfully!');
             }
@@ -214,7 +230,12 @@ const CustomerForm = () => {
 
             setTimeout(() => navigate('/customers'), 800);
         } catch (err) {
-            setSaveError(err.response?.data?.message || 'Failed to save customer. Please try again.');
+            const errorData = err.response?.data;
+            if (errorData?.errors && Array.isArray(errorData.errors)) {
+                setSaveError(`Validation Error: ${errorData.errors.join(' | ')}`);
+            } else {
+                setSaveError(errorData?.message || 'Failed to save customer. Please try again.');
+            }
             setLoading(false);
         }
     };
@@ -335,15 +356,17 @@ const CustomerForm = () => {
                     </InputRow>
 
                     {/* Company Name */}
-                    <InputRow label="Company Name" required>
+                    <InputRow label={form.customerType === 'Individual' ? 'Company Name (optional)' : 'Company Name'} required={form.customerType === 'Business'}>
                         <input
                             type="text"
                             className="input-field max-w-md"
                             value={form.companyName}
                             onChange={e => handleChange('companyName', e.target.value)}
-                            placeholder="Company / Business Name"
-                            required
+                            placeholder={form.customerType === 'Individual' ? 'Leave blank to auto-fill from name' : 'Company / Business Name'}
                         />
+                        {form.customerType === 'Individual' && (
+                            <p className="text-xs text-slate-400 mt-1">If blank, will use First + Last Name</p>
+                        )}
                     </InputRow>
 
                     {/* Display Name */}
@@ -487,9 +510,7 @@ const CustomerForm = () => {
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                             <AddressPanel type="billingAddress" label="Billing Address" form={form} handleAddressChange={handleAddressChange} />
                             <AddressPanel type="shippingAddress" label="Shipping Address" form={form} handleAddressChange={handleAddressChange} copyBillingToShipping={copyBillingToShipping} />
-                            <div className="xl:col-span-2 mt-2 p-4 bg-amber-50 border-l-4 border-amber-400 rounded text-sm text-amber-800">
-                                <strong>Note:</strong> You can customize how customers' addresses are displayed in transaction PDFs via Settings → Preferences → Customers.
-                            </div>
+
                         </div>
                     )}
 
@@ -510,19 +531,19 @@ const CustomerForm = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {form.contactPersons.map((cp, idx) => (
+                                        {(Array.isArray(form?.contactPersons) ? form.contactPersons : []).map((cp, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50">
                                                 <td className="px-2 py-2">
                                                     <select className="input-field py-1.5 text-xs" value={cp.salutation} onChange={e => handleContactPersonChange(idx, 'salutation', e.target.value)}>
                                                         <option value=""></option>
-                                                        {SALUTATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                        {(Array.isArray(SALUTATIONS) ? SALUTATIONS : []).map(s => <option key={s} value={s}>{s}</option>)}
                                                     </select>
                                                 </td>
-                                                <td className="px-2 py-2"><input type="text" className="input-field py-1.5 text-sm" value={cp.firstName} onChange={e => handleContactPersonChange(idx, 'firstName', e.target.value)} /></td>
-                                                <td className="px-2 py-2"><input type="text" className="input-field py-1.5 text-sm" value={cp.lastName} onChange={e => handleContactPersonChange(idx, 'lastName', e.target.value)} /></td>
-                                                <td className="px-2 py-2"><input type="email" className="input-field py-1.5 text-sm" value={cp.email} onChange={e => handleContactPersonChange(idx, 'email', e.target.value)} /></td>
-                                                <td className="px-2 py-2"><input type="tel" className="input-field py-1.5 text-sm" value={cp.workPhone} onChange={e => handleContactPersonChange(idx, 'workPhone', e.target.value)} /></td>
-                                                <td className="px-2 py-2"><input type="tel" className="input-field py-1.5 text-sm" value={cp.mobile} onChange={e => handleContactPersonChange(idx, 'mobile', e.target.value)} /></td>
+                                                <td className="px-2 py-2"><input type="text" className="input-field py-1.5 text-sm" value={cp.firstName || ''} onChange={e => handleContactPersonChange(idx, 'firstName', e.target.value)} /></td>
+                                                <td className="px-2 py-2"><input type="text" className="input-field py-1.5 text-sm" value={cp.lastName || ''} onChange={e => handleContactPersonChange(idx, 'lastName', e.target.value)} /></td>
+                                                <td className="px-2 py-2"><input type="email" className="input-field py-1.5 text-sm" value={cp.email || ''} onChange={e => handleContactPersonChange(idx, 'email', e.target.value)} /></td>
+                                                <td className="px-2 py-2"><input type="tel" className="input-field py-1.5 text-sm" value={cp.workPhone || ''} onChange={e => handleContactPersonChange(idx, 'workPhone', e.target.value)} /></td>
+                                                <td className="px-2 py-2"><input type="tel" className="input-field py-1.5 text-sm" value={cp.mobile || ''} onChange={e => handleContactPersonChange(idx, 'mobile', e.target.value)} /></td>
                                                 <td className="px-2 py-2 text-center">
                                                     <button type="button" onClick={() => removeContactPerson(idx)} className="text-red-400 hover:text-red-600 transition-colors">
                                                         <Trash2 size={15} />

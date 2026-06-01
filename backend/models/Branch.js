@@ -32,5 +32,7 @@ const branchSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+branchSchema.index({ companyId: 1, branchCode: 1 }, { unique: true });
+
 const Branch = mongoose.model('Branch', branchSchema);
 export default Branch;

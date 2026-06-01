@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 
@@ -18,6 +18,8 @@ const InputRow = ({ label, required, children, helper }) => (
 
 const QuotationForm = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -38,6 +40,10 @@ const QuotationForm = () => {
     ]);
     const [notes, setNotes] = useState('Looking forward for your business.');
     const [termsAndConditions, setTermsAndConditions] = useState('only pay after the payment');
+    const [includeTerms, setIncludeTerms] = useState(true);
+    const [includeSignature, setIncludeSignature] = useState(false);
+    const [includeBankDetails, setIncludeBankDetails] = useState(true);
+    const [includeUpiQr, setIncludeUpiQr] = useState(true);
     const [adjustment, setAdjustment] = useState(0);
     const [tdsPercentage, setTdsPercentage] = useState(0);
     const [attachedFiles, setAttachedFiles] = useState([]);
@@ -47,23 +53,53 @@ const QuotationForm = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [custRes, itemRes, quoteRes] = await Promise.all([
+                const [custRes, itemRes] = await Promise.all([
                     axios.get('/api/customers'),
-                    axios.get('/api/items'),
-                    axios.get('/api/quotations')
+                    axios.get('/api/items')
                 ]);
                 setCustomers(custRes.data.data);
                 setCatalogItems(itemRes.data.data);
 
-                // Estimate the next quote number for placeholder
-                const count = quoteRes.data.count || 0;
-                setQuoteNumberPlaceholder(`QT-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`);
+                if (isEdit) {
+                    const quoteRes = await axios.get(`/api/quotations/${id}`);
+                    const data = quoteRes.data.data;
+                    setCustomerId(data.customerId?._id || data.customerId || '');
+                    setReferenceNumber(data.referenceNumber || '');
+                    setQuoteDate(data.quoteDate?.split('T')[0] || new Date().toISOString().split('T')[0]);
+                    setValidityDate(data.validityDate?.split('T')[0] || '');
+                    setSalesperson(data.salesperson || '');
+                    setProjectName(data.projectName || '');
+                    setSubject(data.subject || '');
+                    setNotes(data.notes || '');
+                    setTermsAndConditions(data.termsAndConditions || '');
+                    setIncludeTerms(data.includeTerms !== false);
+                    setIncludeSignature(data.includeSignature || false);
+                    setIncludeBankDetails(data.includeBankDetails !== false);
+                    setIncludeUpiQr(data.includeUpiQr !== false);
+                    setAdjustment(data.adjustment || 0);
+                    setTdsPercentage(data.tdsPercentage || 0);
+                    setQuoteNumberPlaceholder(data.quoteNumber || 'QT-00000X');
+                    if (data.items?.length > 0) {
+                        setItems(data.items.map(i => ({
+                            itemId: i.itemId?._id || i.itemId || '',
+                            name: i.name || '',
+                            quantity: i.quantity || 1,
+                            rate: i.rate || 0,
+                            discount: i.discount || 0,
+                            gstPercentage: i.gstPercentage || i.gstPercent || 0
+                        })));
+                    }
+                } else {
+                    const quoteRes = await axios.get('/api/quotations');
+                    const count = quoteRes.data.count || 0;
+                    setQuoteNumberPlaceholder(`QT-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`);
+                }
             } catch (err) {
                 console.error('Error fetching data for quotation', err);
             }
         };
         fetchData();
-    }, []);
+    }, [id]);
 
     useEffect(() => {
         let sub = 0;
@@ -131,7 +167,7 @@ const QuotationForm = () => {
         setError('');
 
         try {
-            await axios.post('/api/quotations', {
+            const payload = {
                 customerId,
                 quoteDate,
                 validityDate: validityDate || undefined,
@@ -145,11 +181,21 @@ const QuotationForm = () => {
                 tdsAmount: totals.tdsAmount,
                 notes,
                 termsAndConditions,
+                includeTerms,
+                includeSignature,
+                includeBankDetails,
+                includeUpiQr,
                 status: type === 'draft' ? 'Draft' : 'Sent'
-            });
+            };
+
+            if (isEdit) {
+                await axios.put(`/api/quotations/${id}`, payload);
+            } else {
+                await axios.post('/api/quotations', payload);
+            }
             navigate('/quotations');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create quotation');
+            setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} quotation`);
             setLoading(false);
         }
     };
@@ -164,7 +210,7 @@ const QuotationForm = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">New Quotation</h1>
+                        <h1 className="text-lg font-bold text-slate-900">{isEdit ? 'Edit Quotation' : 'New Quotation'}</h1>
                         <p className="text-xs text-slate-500 font-medium font-mono uppercase tracking-wider">{quoteNumberPlaceholder}</p>
                     </div>
                 </div>
@@ -370,6 +416,44 @@ const QuotationForm = () => {
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                 </div>
                             </div>
+                        </div>
+                        <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={includeTerms}
+                                    onChange={(e) => setIncludeTerms(e.target.checked)}
+                                />
+                                <span className="text-sm font-medium text-slate-700">Include Terms & Conditions on Quotation</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={includeSignature}
+                                    onChange={(e) => setIncludeSignature(e.target.checked)}
+                                />
+                                <span className="text-sm font-medium text-slate-700">Include Digital/Authorized Signature</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={includeBankDetails}
+                                    onChange={(e) => setIncludeBankDetails(e.target.checked)}
+                                />
+                                <span className="text-sm font-medium text-slate-700">Include Bank Details</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    checked={includeUpiQr}
+                                    onChange={(e) => setIncludeUpiQr(e.target.checked)}
+                                />
+                                <span className="text-sm font-medium text-slate-700">Include UPI and QR Code</span>
+                            </label>
                         </div>
                     </div>
 

@@ -1,8 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+
+const formatCustomerAddress = (addr, flatFallback) => {
+    if (!addr) return flatFallback || '';
+    if (typeof addr === 'string') return addr;
+    const hasValues = Object.values(addr).some(val => val !== undefined && val !== null && String(val).trim() !== '');
+    if (!hasValues) return flatFallback || '';
+    const streetParts = [addr.street1, addr.street2, addr.street].filter(Boolean).map(s => String(s).trim()).join(', ');
+    return [
+        streetParts,
+        addr.city,
+        addr.state,
+        addr.zipCode || addr.pincode || addr.zip
+    ].filter(v => v && String(v).trim() !== '').join(', ');
+};
 
 const QuotationViewer = () => {
     const { id } = useParams();
@@ -11,6 +25,19 @@ const QuotationViewer = () => {
     const [loading, setLoading] = useState(true);
     const [template, setTemplate] = useState('modern');
     const quoteRef = useRef(null);
+
+    const handleDeleteQuote = async () => {
+        if (window.confirm("Are you sure you want to permanently delete this quotation?")) {
+            try {
+                await axios.delete(`/api/quotations/${id}`);
+                alert("Quotation deleted successfully.");
+                navigate('/quotations');
+            } catch (err) {
+                console.error("Error deleting quotation", err);
+                alert(err.response?.data?.message || "Failed to delete quotation.");
+            }
+        }
+    };
 
     useEffect(() => {
         const fetchQuotation = async () => {
@@ -27,16 +54,50 @@ const QuotationViewer = () => {
         fetchQuotation();
     }, [id]);
 
-    const handleDownloadPDF = () => {
-        const element = quoteRef.current;
-        const opt = {
-            margin: 0,
-            filename: `Quotation_${quoteData.quotation.quoteNumber}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+    const handleDownloadPDF = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/quotations/${id}/download?token=${token}&template=${template}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Quotation-${quoteData.quotation.quoteNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (err) {
+            console.error('PDF download failed:', err);
+            const element = quoteRef.current;
+            const opt = {
+                margin: 0,
+                filename: `Quotation_${quoteData.quotation.quoteNumber}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    };
+
+    const handleSendEmail = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.post(`/api/quotations/${id}/send`, {}, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            alert('Quotation emailed successfully!');
+        } catch (err) {
+            console.error('Email send failed:', err);
+            handleShareEmail();
+        }
     };
 
     const handleShareWhatsApp = () => {
@@ -59,7 +120,7 @@ const QuotationViewer = () => {
     const customer = quote.customerId;
 
     const TemplateModern = () => (
-        <div className="bg-white p-10 rounded-xl shadow-sm border border-slate-200" ref={quoteRef}>
+        <div className="bg-white p-10 rounded-xl shadow-sm border border-slate-200 font-sans text-slate-800" ref={quoteRef}>
             <div className="flex justify-between items-start border-b border-slate-100 pb-8 mb-8">
                 <div>
                     {settings?.logoUrl ? (
@@ -74,7 +135,7 @@ const QuotationViewer = () => {
                     <h2 className="text-4xl font-black text-blue-600 tracking-tight uppercase mb-4">Quotation</h2>
                     <p className="text-slate-500 text-sm mb-1">Quote No: <span className="font-bold text-slate-900">{quote.quoteNumber}</span></p>
                     <p className="text-slate-500 text-sm mb-1">Date: <span className="font-medium text-slate-900">{new Date(quote.createdAt).toLocaleDateString()}</span></p>
-                    <p className="text-slate-500 text-sm">Valid Till: <span className="font-medium text-amber-600">{new Date(quote.validityDate).toLocaleDateString()}</span></p>
+                    <p className="text-slate-500 text-sm">Valid Till: <span className="font-medium text-amber-600">{new Date(quote.validityDate || quote.validUntil).toLocaleDateString()}</span></p>
                 </div>
             </div>
 
@@ -82,7 +143,7 @@ const QuotationViewer = () => {
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Quotation For</p>
                     <h3 className="text-lg font-bold text-slate-900 mb-1">{customer?.companyName}</h3>
-                    <p className="text-slate-500 text-sm mb-1">{customer?.billingAddress?.street}</p>
+                    <p className="text-slate-500 text-sm mb-1">{formatCustomerAddress(customer?.billingAddress, customer?.address)}</p>
                     <p className="text-slate-500 text-sm">GSTIN: <span className="font-medium text-slate-700">{customer?.gstNumber || 'URD'}</span></p>
                 </div>
             </div>
@@ -117,20 +178,67 @@ const QuotationViewer = () => {
                         <span>Sub Total</span>
                         <span className="font-medium text-slate-900">₹{quote.subTotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
-                        <span>Tax (CGST+SGST)</span>
-                        <span>₹{(quote.taxTotal.cgst + quote.taxTotal.sgst).toFixed(2)}</span>
-                    </div>
+                    {quote.taxTotal?.cgst !== undefined ? (
+                        <div className="flex justify-between text-slate-600">
+                            <span>Tax (CGST+SGST)</span>
+                            <span>₹{(quote.taxTotal.cgst + quote.taxTotal.sgst).toFixed(2)}</span>
+                        </div>
+                    ) : quote.taxTotal !== undefined ? (
+                        <div className="flex justify-between text-slate-600">
+                            <span>Tax Total</span>
+                            <span>₹{quote.taxTotal.toFixed(2)}</span>
+                        </div>
+                    ) : null}
                     <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">
                         <span>Estimate Total</span>
                         <span className="text-blue-600">₹{quote.grandTotal.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
+
             {quote.notes && (
                 <div className="mt-10 pt-6 border-t border-slate-100">
+                    <p className="text-sm font-semibold text-slate-800 mb-1">Customer Notes</p>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{quote.notes}</p>
+                </div>
+            )}
+
+            {quote.includeTerms !== false && quote.termsAndConditions && (
+                <div className="mt-6 pt-4 border-t border-slate-100">
                     <p className="text-sm font-semibold text-slate-800 mb-1">Terms & Conditions</p>
-                    <p className="text-sm text-slate-600">{quote.notes}</p>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{quote.termsAndConditions}</p>
+                </div>
+            )}
+
+            {quote.includeBankDetails !== false && settings?.bankDetails && (
+                <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-800 mb-1">Bank Details</p>
+                    <p>Bank: {settings.bankDetails.bankName}</p>
+                    <p>Account Name: {settings.bankDetails.accountName}</p>
+                    <p>Account Number: {settings.bankDetails.accountNumber}</p>
+                    <p>IFSC Code: {settings.bankDetails.ifscCode}</p>
+                </div>
+            )}
+
+            {quote.includeUpiQr !== false && settings?.upiId && (
+                <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-800 mb-1">UPI ID</p>
+                    <p>{settings.upiId}</p>
+                </div>
+            )}
+
+            {quote.includeSignature && (
+                <div className="mt-10 pt-6 border-t border-slate-100 flex justify-end">
+                    <div className="text-center">
+                        <div className="border border-slate-200 rounded-lg p-2 w-48 h-20 flex items-center justify-center bg-slate-50 mb-2">
+                            {settings?.signatureUrl ? (
+                                <img src={settings.signatureUrl} alt="Signature" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                                <span className="text-xs text-slate-400">Signature</span>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Authorized Signatory</p>
+                    </div>
                 </div>
             )}
         </div>
@@ -159,11 +267,15 @@ const QuotationViewer = () => {
                         <Edit size={20} />
                     </button>
 
+                    <button onClick={handleDeleteQuote} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Delete Quote">
+                        <Trash2 size={20} />
+                    </button>
+
                     <button onClick={() => window.print()} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Print Quote">
                         <Printer size={20} />
                     </button>
 
-                    <button onClick={handleShareEmail} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Share via Email">
+                    <button onClick={handleSendEmail} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Share via Email">
                         <Mail size={20} />
                     </button>
 

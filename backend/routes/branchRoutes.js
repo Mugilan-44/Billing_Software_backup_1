@@ -10,11 +10,11 @@ import { protect, authorize } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.route('/')
-    .post(protect, authorize('SUPER_ADMIN'), createBranch)
-    .get(protect, authorize('SUPER_ADMIN', 'ADMIN'), getBranches);
+    .post(authorize('SUPER_ADMIN'), createBranch)
+    .get(authorize('SUPER_ADMIN', 'ADMIN'), getBranches);
 
 router.route('/:id')
-    .put(protect, authorize('SUPER_ADMIN'), updateBranch)
-    .delete(protect, authorize('SUPER_ADMIN'), deleteBranch);
+    .put(authorize('SUPER_ADMIN'), updateBranch)
+    .delete(authorize('SUPER_ADMIN'), deleteBranch);
 
 export default router;

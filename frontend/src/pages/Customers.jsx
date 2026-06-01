@@ -1,22 +1,30 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Search, FileText, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Mail, Phone, User, MapPin, CreditCard, Building2, Briefcase, Award } from 'lucide-react';
 
 const Customers = () => {
     const navigate = useNavigate();
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [ledgerCustomer, setLedgerCustomer] = useState(null);
-    const [ledgerData, setLedgerData] = useState(null);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [ledgerData, setLedgerData] = useState([]);
+    const [loadingLedger, setLoadingLedger] = useState(false);
 
-    useEffect(() => { fetchCustomers(); }, []);
+    useEffect(() => {
+        fetchCustomers();
+    }, []);
 
     const fetchCustomers = async () => {
         try {
             const res = await axios.get('/api/customers');
             setCustomers(res.data.data);
+            if (res.data.data.length > 0) {
+                // Pre-select first customer
+                setSelectedCustomer(res.data.data[0]);
+                fetchLedger(res.data.data[0]);
+            }
         } catch (error) {
             console.error('Error fetching customers', error);
         } finally {
@@ -24,15 +32,43 @@ const Customers = () => {
         }
     };
 
+    const fetchLedger = async (customer) => {
+        if (!customer) return;
+        setLoadingLedger(true);
+        try {
+            const res = await axios.get(`/api/customers/${customer._id}/ledger`);
+            setLedgerData(res.data.data);
+        } catch (error) {
+            console.error('Error fetching ledger', error);
+            setLedgerData([]);
+        } finally {
+            setLoadingLedger(false);
+        }
+    };
+
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this customer?')) {
             try {
                 await axios.delete(`/api/customers/${id}`);
-                fetchCustomers();
+                // Refresh list
+                const res = await axios.get('/api/customers');
+                setCustomers(res.data.data);
+                if (res.data.data.length > 0) {
+                    setSelectedCustomer(res.data.data[0]);
+                    fetchLedger(res.data.data[0]);
+                } else {
+                    setSelectedCustomer(null);
+                    setLedgerData([]);
+                }
             } catch (error) {
                 console.error('Error deleting customer', error);
             }
         }
+    };
+
+    const handleSelectCustomer = (cust) => {
+        setSelectedCustomer(cust);
+        fetchLedger(cust);
     };
 
     const filteredCustomers = customers.filter(c =>
@@ -41,189 +77,207 @@ const Customers = () => {
         (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const openLedger = async (customer) => {
-        try {
-            setLedgerCustomer(customer);
-            setLedgerData(null);
-            const res = await axios.get(`/api/customers/${customer._id}/ledger`);
-            setLedgerData(res.data.data);
-        } catch (error) {
-            console.error('Error fetching ledger', error);
-            setLedgerData([]);
-        }
-    };
-
     return (
-        <div className="space-y-5">
-            {/* Header */}
-            <div className="flex justify-between items-center">
+        <div className="space-y-5 h-full flex flex-col font-sans">
+            {/* Header Area */}
+            <div className="flex justify-between items-center shrink-0">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Manage your clients, contacts and account ledgers.</p>
+                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Customers List</h1>
+                    <p className="text-xs text-slate-400 mt-0.5">Manage accounts, billing profiles, and customer ledgers.</p>
                 </div>
                 <button onClick={() => navigate('/customers/new')} className="btn-primary flex items-center gap-2">
-                    <Plus size={18} /> New Customer
+                    <Plus size={16} /> Add Customer
                 </button>
             </div>
 
-            {/* Table Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Search bar */}
-                <div className="px-5 py-4 border-b border-slate-100">
-                    <div className="relative max-w-sm">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            className="input-field pl-9 py-1.5 text-sm"
-                            placeholder="Search by name, email or phone..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
+            {/* Split Pane Container */}
+            <div className="grid grid-cols-12 gap-5 flex-1 min-h-[500px]">
+                {/* Left Pane: Customer List Selector (Col-span 4) */}
+                <div className="col-span-12 md:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden max-h-[75vh]">
+                    {/* Search Panel */}
+                    <div className="p-3.5 border-b border-slate-100 shrink-0">
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                className="input-field pl-9 py-1.5 text-xs rounded-lg"
+                                placeholder="Search client name..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Scrollable list */}
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                        {loading ? (
+                            <p className="text-xs text-slate-400 text-center py-10">Retrieving customers...</p>
+                        ) : filteredCustomers.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-xs text-slate-400">No customers found.</p>
+                            </div>
+                        ) : (
+                            filteredCustomers.map(c => {
+                                const isSelected = selectedCustomer?._id === c._id;
+                                return (
+                                    <div
+                                        key={c._id}
+                                        onClick={() => handleSelectCustomer(c)}
+                                        className={`p-3.5 flex justify-between items-center cursor-pointer transition-all duration-150 ${isSelected ? 'bg-blue-50/50 border-l-4 border-blue-600 pl-2.5' : 'hover:bg-slate-50'}`}
+                                    >
+                                        <div className="min-w-0 flex-1 pr-2">
+                                            <p className={`text-xs font-bold truncate ${isSelected ? 'text-blue-600' : 'text-slate-800'}`}>{c.companyName}</p>
+                                            <p className="text-[10px] text-slate-400 truncate mt-0.5">{c.email || 'No email'}</p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className={`text-[11px] font-extrabold ${c.outstandingBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                ₹{Number(c.outstandingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </p>
+                                            <p className="text-[9px] text-slate-400 uppercase tracking-widest mt-0.5">Balance</p>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">GSTIN</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Payment Terms</th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Outstanding (₹)</th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan="6" className="px-6 py-10 text-center text-sm text-slate-400">Loading customers...</td></tr>
-                            ) : filteredCustomers.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center">
-                                        <div className="text-slate-400 text-sm">No customers found.</div>
-                                        <button onClick={() => navigate('/customers/new')} className="mt-3 btn-primary text-xs px-4 py-1.5 inline-flex items-center gap-1.5">
-                                            <Plus size={14} /> Add your first customer
+                {/* Right Pane: Detailed Profile & Ledger Statement (Col-span 8) */}
+                <div className="col-span-12 md:col-span-8 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
+                    {selectedCustomer ? (
+                        <>
+                            {/* Profile Overview Card */}
+                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                                <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
+                                            {selectedCustomer.companyName?.[0]?.toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-base font-extrabold text-slate-800">{selectedCustomer.companyName}</h2>
+                                            <p className="text-xs text-slate-400 mt-0.5">Primary Contact: {selectedCustomer.firstName ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Not Specified'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => navigate(`/customers/${selectedCustomer._id}/edit`)}
+                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200"
+                                            title="Edit Profile"
+                                        >
+                                            <Edit2 size={14} />
                                         </button>
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredCustomers.map(c => (
-                                    <tr key={c._id} className="hover:bg-blue-50/30 transition-colors">
-                                        <td className="px-6 py-3.5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                                                    {c.companyName?.[0]?.toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-semibold text-slate-900">{c.companyName}</div>
-                                                    <div className="text-xs text-slate-500">{c.displayName !== c.companyName ? c.displayName : (c.firstName && c.lastName ? `${c.firstName} ${c.lastName}` : '')}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3.5">
-                                            <div className="text-sm text-slate-800">{c.workPhone || c.phone || '-'}</div>
-                                            <div className="text-xs text-slate-400">{c.email || ''}</div>
-                                        </td>
-                                        <td className="px-6 py-3.5 text-sm text-slate-600 font-mono">{c.gstNumber || '—'}</td>
-                                        <td className="px-6 py-3.5">
-                                            <span className="inline-block bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full font-medium">
-                                                {c.paymentTerms || 'Due on Receipt'}
-                                            </span>
-                                        </td>
-                                        <td className={`px-6 py-3.5 text-sm font-bold text-right ${c.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            {c.outstandingBalance?.toFixed(2) || '0.00'}
-                                        </td>
-                                        <td className="px-6 py-3.5">
-                                            <div className="flex items-center justify-end gap-3">
-                                                <button onClick={() => openLedger(c)}
-                                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="View Ledger">
-                                                    <FileText size={15} />
-                                                </button>
-                                                <button onClick={() => navigate(`/customers/${c._id}/edit`)}
-                                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
-                                                    <Edit2 size={15} />
-                                                </button>
-                                                <button onClick={() => handleDelete(c._id)}
-                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Delete">
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {filteredCustomers.length > 0 && (
-                    <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
-                        Showing {filteredCustomers.length} of {customers.length} customers
-                    </div>
-                )}
-            </div>
-
-            {/* Ledger Modal */}
-            {ledgerCustomer && (
-                <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
-                        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900">Account Statement</h3>
-                                <p className="text-sm text-slate-500">{ledgerCustomer.companyName}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                    <p className="text-xs text-slate-500">Outstanding Balance</p>
-                                    <p className={`text-lg font-bold ${ledgerCustomer.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ₹{ledgerCustomer.outstandingBalance?.toFixed(2)}
-                                    </p>
+                                        <button
+                                            onClick={() => handleDelete(selectedCustomer._id)}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-slate-200"
+                                            title="Delete Customer"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
-                                <button onClick={() => { setLedgerCustomer(null); setLedgerData(null); }}
-                                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                                    <X size={20} />
-                                </button>
+
+                                {/* Core Details Grid */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Contact Information</p>
+                                        <p className="text-slate-700 flex items-center gap-1.5"><Mail size={12} className="text-slate-400" /> {selectedCustomer.email || '-'}</p>
+                                        <p className="text-slate-700 flex items-center gap-1.5"><Phone size={12} className="text-slate-400" /> {selectedCustomer.workPhone || selectedCustomer.phone || '-'}</p>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Tax & Compliance</p>
+                                        <p className="text-slate-700 font-mono">GSTIN: {selectedCustomer.gstNumber || selectedCustomer.gstin || '—'}</p>
+                                        <p className="text-slate-700 font-mono">PAN: {selectedCustomer.panNumber || '—'}</p>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Billing Address</p>
+                                        <p className="text-slate-600 flex items-start gap-1"><MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                                            <span>
+                                                {selectedCustomer.billingAddress ? (
+                                                    <>
+                                                        {selectedCustomer.billingAddress.street1} {selectedCustomer.billingAddress.street2 && `, ${selectedCustomer.billingAddress.street2}`}<br />
+                                                        {selectedCustomer.billingAddress.city}, {selectedCustomer.billingAddress.state} - {selectedCustomer.billingAddress.zipCode}
+                                                    </>
+                                                ) : (
+                                                    selectedCustomer.address || 'No billing address provided.'
+                                                )}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Quick Business Metrics */}
+                                <div className="grid grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100/80">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lifetime Business</p>
+                                        <p className="text-base font-extrabold text-slate-800">₹{Number(selectedCustomer.totalBusiness || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
+                                        <p className={`text-base font-extrabold ${selectedCustomer.outstandingBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                            ₹{Number(selectedCustomer.outstandingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Account Statement / Ledger Table */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1">
+                                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/20">
+                                    <div>
+                                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Account Statement Ledger</h3>
+                                        <p className="text-[9px] text-slate-400">Statement of bills raised and payments reconciled.</p>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    {loadingLedger ? (
+                                        <p className="text-xs text-slate-400 text-center py-12">Compiling transactions...</p>
+                                    ) : ledgerData.length === 0 ? (
+                                        <p className="text-xs text-slate-400 text-center py-12">No transactions recorded yet.</p>
+                                    ) : (
+                                        <table className="min-w-full text-xs">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                    <th className="px-4 py-3 text-left">Date</th>
+                                                    <th className="px-4 py-3 text-left">Particulars</th>
+                                                    <th className="px-4 py-3 text-left">Type</th>
+                                                    <th className="px-4 py-3 text-right">Debit (₹)</th>
+                                                    <th className="px-4 py-3 text-right">Credit (₹)</th>
+                                                    <th className="px-4 py-3 text-right">Balance (₹)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {ledgerData.map((entry, idx) => (
+                                                    <tr key={entry._id || idx} className="hover:bg-slate-50/50">
+                                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-slate-700 font-medium">{entry.description}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${entry.type === 'Invoice' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                                                                {entry.type}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-red-500 font-semibold text-right">{entry.debit > 0 ? entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}</td>
+                                                        <td className="px-4 py-3 text-emerald-600 font-semibold text-right">{entry.credit > 0 ? entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}</td>
+                                                        <td className="px-4 py-3 text-slate-900 font-extrabold text-right">{entry.balance ? entry.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm flex flex-col items-center justify-center flex-1">
+                            <Building2 className="text-slate-300 mb-3" size={40} />
+                            <h3 className="text-sm font-bold text-slate-700">No Customer Selected</h3>
+                            <p className="text-xs text-slate-400 mt-1">Please select a customer from the left list to view detailed profile and statements.</p>
                         </div>
-                        <div className="overflow-auto flex-1 p-2">
-                            {ledgerData === null ? (
-                                <div className="text-center text-slate-400 py-12">Loading statement...</div>
-                            ) : ledgerData.length === 0 ? (
-                                <div className="text-center text-slate-400 py-12">No transactions recorded yet.</div>
-                            ) : (
-                                <table className="min-w-full">
-                                    <thead className="sticky top-0 bg-slate-50">
-                                        <tr className="border-y border-slate-200">
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Particulars</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
-                                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Debit (₹)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Credit (₹)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Balance (₹)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {ledgerData.map((entry, idx) => (
-                                            <tr key={entry._id || idx} className="hover:bg-slate-50">
-                                                <td className="px-4 py-3 text-sm text-slate-500">{new Date(entry.date).toLocaleDateString('en-IN')}</td>
-                                                <td className="px-4 py-3 text-sm text-slate-800 font-medium">{entry.description}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${entry.type === 'Invoice' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                                        {entry.type}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm font-medium text-red-600 text-right">{entry.debit > 0 ? entry.debit.toFixed(2) : '—'}</td>
-                                                <td className="px-4 py-3 text-sm font-medium text-green-600 text-right">{entry.credit > 0 ? entry.credit.toFixed(2) : '—'}</td>
-                                                <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">{entry.balance.toFixed(2)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 };

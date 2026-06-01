@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, Package, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 
@@ -18,6 +18,8 @@ const InputRow = ({ label, required, children, helper }) => (
 
 const PurchaseBillForm = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [vendors, setVendors] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -26,8 +28,13 @@ const PurchaseBillForm = () => {
 
     const [vendorId, setVendorId] = useState('');
     const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dueDate, setDueDate] = useState('');
     const [items, setItems] = useState([]);
     const [notes, setNotes] = useState('');
+    const [includeTerms, setIncludeTerms] = useState(true);
+    const [includeSignature, setIncludeSignature] = useState(false);
+    const [includeBankDetails, setIncludeBankDetails] = useState(true);
+    const [includeUpiQr, setIncludeUpiQr] = useState(true);
     const [discount, setDiscount] = useState(0);
 
     const [totals, setTotals] = useState({ subTotal: 0, taxTotal: 0, grandTotal: 0 });
@@ -41,12 +48,36 @@ const PurchaseBillForm = () => {
                 ]);
                 setVendors(venRes.data.data);
                 setCatalogItems(itemRes.data.data);
+
+                if (isEdit) {
+                    const billRes = await axios.get(`/api/purchase-bills/${id}`);
+                    const data = billRes.data.data;
+                    setVendorId(data.vendorId?._id || data.vendorId || '');
+                    setBillDate(data.date?.split('T')[0] || data.billDate?.split('T')[0] || '');
+                    setDueDate(data.dueDate?.split('T')[0] || '');
+                    setNotes(data.notes || '');
+                    setIncludeTerms(data.includeTerms !== false);
+                    setIncludeSignature(data.includeSignature || false);
+                    setIncludeBankDetails(data.includeBankDetails !== false);
+                    setIncludeUpiQr(data.includeUpiQr !== false);
+                    setDiscount(data.discount || 0);
+                    const srcItems = data.lineItems?.length ? data.lineItems : data.items || [];
+                    if (srcItems.length > 0) {
+                        setItems(srcItems.map(i => ({
+                            itemId: i.itemId?._id || i.itemId || '',
+                            name: i.name || '',
+                            quantity: i.quantity || 1,
+                            rate: i.rate || 0,
+                            gstPercentage: i.gstPercentage || i.gstPercent || 0
+                        })));
+                    }
+                }
             } catch (err) {
                 console.error('Error fetching data for purchase bill', err);
             }
         };
         fetchData();
-    }, []);
+    }, [id]);
 
     useEffect(() => {
         let sub = 0;
@@ -100,13 +131,36 @@ const PurchaseBillForm = () => {
         setLoading(true);
         setError('');
 
+        const payload = {
+            vendorId,
+            billDate,
+            date: billDate,
+            dueDate: dueDate || undefined,
+            items,
+            lineItems: items.map(i => ({
+                itemId: i.itemId,
+                name: i.name,
+                quantity: i.quantity,
+                rate: i.rate,
+                gstPercent: i.gstPercentage
+            })),
+            discount: Number(discount),
+            notes,
+            includeTerms,
+            includeSignature,
+            includeBankDetails,
+            includeUpiQr
+        };
+
         try {
-            await axios.post('/api/purchase-bills', {
-                vendorId, billDate, items, discount: Number(discount), notes
-            });
+            if (isEdit) {
+                await axios.put(`/api/purchase-bills/${id}`, payload);
+            } else {
+                await axios.post('/api/purchase-bills', payload);
+            }
             navigate('/purchase-bills');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create purchase bill');
+            setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} purchase bill`);
             setLoading(false);
         }
     };
@@ -121,7 +175,7 @@ const PurchaseBillForm = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">Record Purchase Bill</h1>
+                        <h1 className="text-lg font-bold text-slate-900">{isEdit ? 'Edit Purchase Bill' : 'Record Purchase Bill'}</h1>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Inward Stock & Expenses</p>
                     </div>
                 </div>
@@ -132,7 +186,7 @@ const PurchaseBillForm = () => {
                     <button type="submit" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save & Update Stock'}
+                        {loading ? 'Saving...' : (isEdit ? 'Update Stock Bill' : 'Save & Update Stock')}
                     </button>
                 </div>
             </div>
@@ -177,6 +231,13 @@ const PurchaseBillForm = () => {
                         <div className="flex items-center gap-2 max-w-[200px]">
                             <Calendar size={16} className="text-slate-400" />
                             <input type="date" className="input-field" value={billDate} onChange={e => setBillDate(e.target.value)} required />
+                        </div>
+                    </InputRow>
+
+                    <InputRow label="Due Date" helper="Date by which payment should be made">
+                        <div className="flex items-center gap-2 max-w-[200px]">
+                            <Calendar size={16} className="text-slate-400" />
+                            <input type="date" className="input-field" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                         </div>
                     </InputRow>
                 </div>
@@ -259,6 +320,44 @@ const PurchaseBillForm = () => {
                                 onChange={e => setNotes(e.target.value)}
                                 placeholder="Batch numbers, supplier references, or delivery instructions..."
                             />
+                            <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeTerms}
+                                        onChange={(e) => setIncludeTerms(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Terms & Conditions on Bill</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeSignature}
+                                        onChange={(e) => setIncludeSignature(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Digital/Authorized Signature</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeBankDetails}
+                                        onChange={(e) => setIncludeBankDetails(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Bank Details</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeUpiQr}
+                                        onChange={(e) => setIncludeUpiQr(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include UPI and QR Code</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
@@ -297,7 +396,7 @@ const PurchaseBillForm = () => {
                             Cancel
                         </button>
                         <button type="submit" disabled={loading} className="btn-primary px-10 shadow-lg shadow-blue-500/10">
-                            {loading ? 'Saving...' : 'Save & Update Stock'}
+                            {loading ? 'Saving...' : (isEdit ? 'Update Stock Bill' : 'Save & Update Stock')}
                         </button>
                     </div>
                 </div>

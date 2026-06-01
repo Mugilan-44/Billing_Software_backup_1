@@ -1,5 +1,5 @@
+import 'dotenv/config';
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -26,10 +26,11 @@ import vendorRoutes from './routes/vendorRoutes.js';
 import purchaseBillRoutes from './routes/purchaseBillRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
 import runCronJobs from './utils/cronJobs.js';
+import { startOverdueCron } from './cron/overdue.cron.js';
+import { protect } from './middleware/authMiddleware.js';
+import { checkSubscription } from './middleware/subscriptionMiddleware.js';
 
-dotenv.config();
-connectDB();
-runCronJobs();
+// Database, crons, and listener are initialized inside startServer() below
 
 const app = express();
 
@@ -50,23 +51,23 @@ app.use('/api/auth', authRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 
 // ─── Business Module Routes ──────────────────────────────────────────────────
-app.use('/api/customers', customerRoutes);
-app.use('/api/items', itemRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/challans', challanRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/credit-notes', creditNoteRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/public', publicRoutes);
-app.use('/api/quotations', quotationRoutes);
-app.use('/api/sales-orders', salesOrderRoutes);
-app.use('/api/vendors', vendorRoutes);
-app.use('/api/purchase-bills', purchaseBillRoutes);
-app.use('/api/branches', branchRoutes);
+app.use('/api/customers', protect, checkSubscription, customerRoutes);
+app.use('/api/items', protect, checkSubscription, itemRoutes);
+app.use('/api/invoices', protect, checkSubscription, invoiceRoutes);
+app.use('/api/challans', protect, checkSubscription, challanRoutes);
+app.use('/api/payments', protect, checkSubscription, paymentRoutes);
+app.use('/api/dashboard', protect, checkSubscription, dashboardRoutes);
+app.use('/api/settings', protect, checkSubscription, settingsRoutes);
+app.use('/api/credit-notes', protect, checkSubscription, creditNoteRoutes);
+app.use('/api/expenses', protect, checkSubscription, expenseRoutes);
+app.use('/api/upload', protect, checkSubscription, uploadRoutes);
+app.use('/api/reports', protect, checkSubscription, reportsRoutes);
+app.use('/api/public', publicRoutes); // Keep public route unsecured
+app.use('/api/quotations', protect, checkSubscription, quotationRoutes);
+app.use('/api/sales-orders', protect, checkSubscription, salesOrderRoutes);
+app.use('/api/vendors', protect, checkSubscription, vendorRoutes);
+app.use('/api/purchase-bills', protect, checkSubscription, purchaseBillRoutes);
+app.use('/api/branches', protect, checkSubscription, branchRoutes);
 
 const __dirname = path.resolve();
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
@@ -78,15 +79,29 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`BillingSystem API running on port ${PORT} | Bound to 0.0.0.0 | RBAC: SUPER_ADMIN / ADMIN / CUSTOMER`);
-});
 
-server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Please kill the process or use a different port.`);
-    } else {
-        console.error('An error occurred while starting the server:', error);
+const startServer = async () => {
+    try {
+        await connectDB();
+        runCronJobs();
+        startOverdueCron();
+
+        const server = app.listen(PORT, '0.0.0.0', () => {
+            console.log(`BillingSystem API running on port ${PORT} | Bound to 0.0.0.0 | RBAC: SUPER_ADMIN / ADMIN / CUSTOMER`);
+        });
+
+        server.on('error', (error) => {
+            if (error.code === 'EADDRINUSE') {
+                console.error(`Port ${PORT} is already in use. Please kill the process or use a different port.`);
+            } else {
+                console.error('An error occurred while starting the server:', error);
+            }
+            process.exit(1);
+        });
+    } catch (error) {
+        console.error('FATAL: Database connection failed. Server startup aborted:', error.message);
+        process.exit(1);
     }
-    process.exit(1);
-});
+};
+
+startServer();

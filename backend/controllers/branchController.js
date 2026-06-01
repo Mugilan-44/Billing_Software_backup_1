@@ -1,4 +1,5 @@
 import Branch from '../models/Branch.js';
+import Company from '../models/Company.js';
 
 // @desc    Create new branch
 // @route   POST /api/branches
@@ -45,13 +46,29 @@ export const getBranches = async (req, res) => {
         }
 
         // Admins can only see their own branch (unless SUPER_ADMIN)
-        if (req.user.role === 'ADMIN') {
+        if (req.user.role !== 'SUPER_ADMIN') {
             query._id = req.user.branchId;
         }
 
-        const branches = await Branch.find(query)
+        let branches = await Branch.find(query)
             .populate('companyId', 'name')
             .sort({ createdAt: -1 });
+
+        // Fallback: If no branches exist for this company, auto-create a default one
+        if (branches.length === 0 && companyId && req.user.role === 'SUPER_ADMIN') {
+            const company = await Company.findById(companyId);
+            if (company) {
+                const newBranch = await Branch.create({
+                    companyId: company._id,
+                    branchName: 'Main Branch',
+                    branchCode: 'MAIN',
+                    address: company.address?.street || '',
+                    phone: company.phone || '',
+                    createdBy: req.user._id
+                });
+                branches = [newBranch];
+            }
+        }
 
         res.json({ success: true, data: branches });
     } catch (error) {

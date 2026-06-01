@@ -21,6 +21,7 @@ const ExpenseForm = () => {
     const navigate = useNavigate();
 
     const [vendors, setVendors] = useState([]);
+    const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -52,6 +53,7 @@ const ExpenseForm = () => {
         category: 'Subcontractor',
         amount: '',
         vendorId: '',
+        customerId: '',
         reference: '',
         notes: '',
         status: 'Paid',
@@ -60,6 +62,7 @@ const ExpenseForm = () => {
 
     useEffect(() => {
         fetchVendors();
+        fetchCustomers();
     }, []);
 
     const fetchVendors = async () => {
@@ -68,6 +71,15 @@ const ExpenseForm = () => {
             setVendors(res.data.data);
         } catch (err) {
             console.error('Failed to load vendors');
+        }
+    };
+
+    const fetchCustomers = async () => {
+        try {
+            const res = await axios.get('/api/customers');
+            setCustomers(res.data.data);
+        } catch (err) {
+            console.error('Failed to load customers');
         }
     };
 
@@ -212,6 +224,18 @@ const ExpenseForm = () => {
                                 ))}
                             </select>
                         </div>
+                    </InputRow>
+
+                    <InputRow label="Customer" helper="Associate this expense with a customer record">
+                        <SearchableDropdown
+                            options={customers.map(c => c.companyName)}
+                            value={customers.find(c => c._id === formData.customerId)?.companyName || ''}
+                            onChange={(name) => {
+                                const cust = customers.find(c => c.companyName === name);
+                                setFormData(prev => ({ ...prev, customerId: cust ? cust._id : '' }));
+                            }}
+                            placeholder="Select Customer"
+                        />
                     </InputRow>
 
                     <InputRow label="Payment Method">

@@ -64,7 +64,7 @@ const Items = () => {
                             <tr>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name & SKU</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Selling Price</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">GST %</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Tax</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Avail. Stock</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Actions</th>
                             </tr>
@@ -79,10 +79,14 @@ const Items = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{item.sellingPrice.toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">{item.gstPercentage}%</span>
+                                            <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                                                {item.taxRate !== undefined ? item.taxRate : (item.gstPercentage || item.gstPercent || 0)}% ({item.taxType || 'GST'})
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="text-sm font-bold text-gray-900">{item.openingStock}</div>
+                                            <div className="text-sm font-bold text-gray-900">
+                                                {item.trackStock !== false ? (item.availableStock ?? item.stockQuantity ?? 0) : 'Not tracked'}
+                                            </div>
                                             <div className="text-[10px] text-gray-400 uppercase font-bold">{item.unit}</div>
                                         </td>
                                         <td className="px-6 py-4 text-center text-sm font-medium space-x-3">

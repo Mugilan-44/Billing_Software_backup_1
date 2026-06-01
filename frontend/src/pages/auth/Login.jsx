@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
@@ -11,6 +11,56 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [recaptchaToken, setRecaptchaToken] = useState('');
+    const recaptchaWidgetRef = useRef(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        let intervalId;
+
+        const renderWidget = () => {
+            if (window.grecaptcha && window.grecaptcha.render && isMounted) {
+                try {
+                    const container = document.getElementById('recaptcha-container');
+                    if (container && container.childNodes.length === 0) {
+                        const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+                        recaptchaWidgetRef.current = window.grecaptcha.render('recaptcha-container', {
+                            sitekey: '6LdY1wYtAAAAAIuHG5a67bKchmEpvpFpZKHKjRNz',
+                            theme: isDark ? 'dark' : 'light',
+                            callback: (token) => {
+                                setRecaptchaToken(token);
+                                setError('');
+                            },
+                            'expired-callback': () => {
+                                setRecaptchaToken('');
+                            },
+                            'error-callback': () => {
+                                setRecaptchaToken('');
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error rendering reCAPTCHA:', err);
+                }
+            }
+        };
+
+        if (window.grecaptcha && window.grecaptcha.render) {
+            renderWidget();
+        } else {
+            intervalId = setInterval(() => {
+                if (window.grecaptcha && window.grecaptcha.render) {
+                    renderWidget();
+                    clearInterval(intervalId);
+                }
+            }, 250);
+        }
+
+        return () => {
+            isMounted = false;
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -18,16 +68,30 @@ const Login = () => {
             setError('Please enter your email and password.');
             return;
         }
+        if (!recaptchaToken) {
+            setError('Please complete the reCAPTCHA verification.');
+            return;
+        }
         setLoading(true);
         setError('');
 
         try {
-            await loginUser(email.trim(), password);
-            navigate('/dashboard'); // Unified dashboard route
+            const res = await loginUser(email.trim(), password, recaptchaToken);
+            sessionStorage.setItem('justLoggedIn', 'true');
+            const userRole = res.data.user?.role;
+            if (userRole === 'SUPER_ADMIN') {
+                navigate('/admin');
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Login failed. Please check your credentials.');
             setLoading(false);
             setPassword('');
+            if (window.grecaptcha && recaptchaWidgetRef.current !== null) {
+                window.grecaptcha.reset(recaptchaWidgetRef.current);
+                setRecaptchaToken('');
+            }
         }
     };
 
@@ -35,19 +99,22 @@ const Login = () => {
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4" style={{ background: 'radial-gradient(ellipse at top, #1e3a5f 0%, #0f172a 60%)' }}>
             <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center mb-8">
-                    <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 shadow-2xl" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', boxShadow: '0 4px 24px rgba(37,99,235,0.45)' }}>
-                        <span className="text-white text-2xl font-black">P</span>
-                    </div>
-                    <h1 className="text-white text-2xl font-bold tracking-tight">Prolync Book</h1>
+                    <img
+                        src="/logo.png"
+                        alt="Prolync Billing Logo"
+                        className="inline-block w-14 h-14 rounded-2xl mb-4 shadow-2xl object-contain bg-white p-2 border border-slate-700/30"
+                        style={{ boxShadow: '0 4px 24px rgba(37,99,235,0.45)' }}
+                    />
+                    <h1 className="text-white text-2xl font-bold tracking-tight">Prolync Billing</h1>
                     <p className="text-slate-400 text-sm mt-1">Enterprise Billing System</p>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-2xl p-8">
-                    <h2 className="text-xl font-bold text-slate-900 mb-1">Welcome back</h2>
-                    <p className="text-sm text-slate-500 mb-6">Sign in to your account</p>
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-2xl shadow-2xl p-8">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in to your account</p>
 
                     {error && (
-                        <div className="flex items-start gap-3 mb-5 p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm animate-in fade-in">
+                        <div className="flex items-start gap-3 mb-5 p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg text-red-700 dark:text-red-400 text-sm animate-in fade-in">
                             <AlertCircle size={16} className="shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
@@ -55,10 +122,10 @@ const Login = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Email Address</label>
                             <input
                                 type="email"
-                                className="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                                className="block w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                                 autoComplete="email"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
@@ -67,23 +134,28 @@ const Login = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
-                                    className="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
+                                    className="block w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
                                     autoComplete="current-password"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
                                     required
                                 />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" tabIndex={-1}>
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" tabIndex={-1}>
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                         </div>
-                        <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] mt-2">
+
+                        <div className="flex justify-center my-4">
+                            <div id="recaptcha-container"></div>
+                        </div>
+
+                        <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] mt-6">
                             {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</> : <><LogIn size={18} />Sign In</>}
                         </button>
                     </form>

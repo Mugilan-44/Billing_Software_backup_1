@@ -1,8 +1,22 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, ShoppingCart, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+
+const formatCustomerAddress = (addr, flatFallback) => {
+    if (!addr) return flatFallback || '';
+    if (typeof addr === 'string') return addr;
+    const hasValues = Object.values(addr).some(val => val !== undefined && val !== null && String(val).trim() !== '');
+    if (!hasValues) return flatFallback || '';
+    const streetParts = [addr.street1, addr.street2, addr.street].filter(Boolean).map(s => String(s).trim()).join(', ');
+    return [
+        streetParts,
+        addr.city,
+        addr.state,
+        addr.zipCode || addr.pincode || addr.zip
+    ].filter(v => v && String(v).trim() !== '').join(', ');
+};
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -20,6 +34,8 @@ const SalesOrderForm = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const quoteId = searchParams.get('quoteId');
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -29,8 +45,14 @@ const SalesOrderForm = () => {
     const [customerId, setCustomerId] = useState('');
     const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
     const [notes, setNotes] = useState('');
+    const [includeTerms, setIncludeTerms] = useState(true);
+    const [includeSignature, setIncludeSignature] = useState(false);
+    const [includeBankDetails, setIncludeBankDetails] = useState(true);
+    const [includeUpiQr, setIncludeUpiQr] = useState(true);
     const [discount, setDiscount] = useState(0);
     const [items, setItems] = useState([]);
+    const [buyersRef, setBuyersRef] = useState('');
+    const [modeOfPayment, setModeOfPayment] = useState('');
 
     const [totals, setTotals] = useState({ subTotal: 0, taxTotal: 0, grandTotal: 0 });
 
@@ -46,7 +68,29 @@ const SalesOrderForm = () => {
                 setCustomers(cList);
                 setCatalogItems(iList);
 
-                if (quoteId) {
+                if (isEdit) {
+                    const orderRes = await axios.get(`/api/sales-orders/${id}`);
+                    const data = orderRes.data.data;
+                    setCustomerId(data.customerId?._id || data.customerId || '');
+                    setExpectedDeliveryDate(data.expectedDeliveryDate?.split('T')[0] || '');
+                    setNotes(data.notes || '');
+                    setIncludeTerms(data.includeTerms !== false);
+                    setIncludeSignature(data.includeSignature || false);
+                    setIncludeBankDetails(data.includeBankDetails !== false);
+                    setIncludeUpiQr(data.includeUpiQr !== false);
+                    setDiscount(data.discount || 0);
+                    setBuyersRef(data.buyersRef || '');
+                    setModeOfPayment(data.modeOfPayment || '');
+                    if (data.items?.length > 0) {
+                        setItems(data.items.map(i => ({
+                            itemId: i.itemId?._id || i.itemId || '',
+                            name: i.name || '',
+                            quantity: i.quantity || 1,
+                            rate: i.rate || 0,
+                            gstPercentage: i.gstPercentage || i.gstPercent || 0
+                        })));
+                    }
+                } else if (quoteId) {
                     const quoteRes = await axios.get(`/api/quotations/${quoteId}`);
                     const qt = quoteRes.data.data;
                     if (qt.customerId) setCustomerId(qt.customerId._id || qt.customerId);
@@ -57,6 +101,10 @@ const SalesOrderForm = () => {
                     }
                     if (qt.discount) setDiscount(qt.discount);
                     if (qt.notes) setNotes(qt.notes);
+                    if (qt.includeTerms !== undefined) setIncludeTerms(qt.includeTerms);
+                    if (qt.includeSignature !== undefined) setIncludeSignature(qt.includeSignature);
+                    if (qt.includeBankDetails !== undefined) setIncludeBankDetails(qt.includeBankDetails);
+                    if (qt.includeUpiQr !== undefined) setIncludeUpiQr(qt.includeUpiQr);
                 }
             } catch (err) {
                 console.error('Error fetching data for sales order', err);
@@ -64,10 +112,12 @@ const SalesOrderForm = () => {
         };
         fetchData();
 
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 7);
-        setExpectedDeliveryDate(defaultDate.toISOString().split('T')[0]);
-    }, [quoteId]);
+        if (!isEdit) {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + 7);
+            setExpectedDeliveryDate(defaultDate.toISOString().split('T')[0]);
+        }
+    }, [quoteId, id]);
 
     useEffect(() => {
         let sub = 0;
@@ -117,13 +167,30 @@ const SalesOrderForm = () => {
         setLoading(true);
         setError('');
 
+        const payload = {
+            customerId,
+            expectedDeliveryDate,
+            items,
+            discount: Number(discount),
+            notes,
+            includeTerms,
+            includeSignature,
+            includeBankDetails,
+            includeUpiQr,
+            quotationId: quoteId || undefined,
+            buyersRef,
+            modeOfPayment
+        };
+
         try {
-            await axios.post('/api/sales-orders', {
-                customerId, expectedDeliveryDate, items, discount: Number(discount), notes, quotationId: quoteId || undefined
-            });
+            if (isEdit) {
+                await axios.put(`/api/sales-orders/${id}`, payload);
+            } else {
+                await axios.post('/api/sales-orders', payload);
+            }
             navigate('/orders');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create sales order');
+            setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} sales order`);
             setLoading(false);
         }
     };
@@ -138,7 +205,7 @@ const SalesOrderForm = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">Create Sales Order</h1>
+                        <h1 className="text-lg font-bold text-slate-900">{isEdit ? 'Edit Sales Order' : 'Create Sales Order'}</h1>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Order Processing</p>
                     </div>
                 </div>
@@ -149,7 +216,7 @@ const SalesOrderForm = () => {
                     <button type="submit" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save Sales Order'}
+                        {loading ? 'Saving...' : (isEdit ? 'Update Sales Order' : 'Save Sales Order')}
                     </button>
                 </div>
             </div>
@@ -183,7 +250,10 @@ const SalesOrderForm = () => {
                                 <Info size={14} className="mt-0.5 text-blue-400 shrink-0" />
                                 <div>
                                     <p className="font-bold text-slate-700 mb-0.5">Billing To:</p>
-                                    {customers.find(c => c._id === customerId)?.billingAddress?.street || 'No address provided'}
+                                    {formatCustomerAddress(
+                                        customers.find(c => c._id === customerId)?.billingAddress,
+                                        customers.find(c => c._id === customerId)?.address
+                                    ) || 'No address provided'}
                                 </div>
                             </div>
                         )}
@@ -194,6 +264,22 @@ const SalesOrderForm = () => {
                             <Calendar size={16} className="text-slate-400" />
                             <input type="date" className="input-field" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} required />
                         </div>
+                    </InputRow>
+
+                    <InputRow label="Buyer's Reference" helper="Reference number or PO details from buyer">
+                        <input type="text" className="input-field max-w-md" value={buyersRef} onChange={e => setBuyersRef(e.target.value)} placeholder="e.g. PO-12345" />
+                    </InputRow>
+
+                    <InputRow label="Mode of Payment" helper="Preferred payment method for this order">
+                        <select className="select-premium max-w-md" value={modeOfPayment} onChange={e => setModeOfPayment(e.target.value)}>
+                            <option value="">Select Payment Mode</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Card">Card</option>
+                            <option value="Net Banking">Net Banking</option>
+                        </select>
                     </InputRow>
                 </div>
 
@@ -275,6 +361,44 @@ const SalesOrderForm = () => {
                                 onChange={e => setNotes(e.target.value)}
                                 placeholder="Order terms, specific branding requirements, or delivery instructions..."
                             />
+                            <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeTerms}
+                                        onChange={(e) => setIncludeTerms(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Terms & Conditions on Sales Order</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeSignature}
+                                        onChange={(e) => setIncludeSignature(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Digital/Authorized Signature</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeBankDetails}
+                                        onChange={(e) => setIncludeBankDetails(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Bank Details</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeUpiQr}
+                                        onChange={(e) => setIncludeUpiQr(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include UPI and QR Code</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
@@ -313,7 +437,7 @@ const SalesOrderForm = () => {
                             Cancel
                         </button>
                         <button type="submit" disabled={loading} className="btn-primary px-10 shadow-lg shadow-blue-500/10">
-                            {loading ? 'Saving...' : 'Save Sales Order'}
+                            {loading ? 'Saving...' : (isEdit ? 'Update Sales Order' : 'Save Sales Order')}
                         </button>
                     </div>
                 </div>

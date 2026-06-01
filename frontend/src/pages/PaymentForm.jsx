@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, CreditCard } from 'lucide-react';
+import { ArrowLeft, Save, CreditCard, Trash2 } from 'lucide-react';
 
 const InputRow = ({ label, required, children }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -17,6 +17,19 @@ const PaymentForm = () => {
     const { id } = useParams();
     const isEdit = Boolean(id);
     const [loading, setLoading] = useState(false);
+
+    const handleDeletePayment = async () => {
+        if (window.confirm("Are you sure you want to permanently delete this payment? This will reverse invoice payments and customer outstanding balances.")) {
+            try {
+                await axios.delete(`/api/payments/${id}`);
+                alert("Payment deleted successfully.");
+                navigate('/payments');
+            } catch (err) {
+                console.error("Error deleting payment", err);
+                alert(err.response?.data?.message || "Failed to delete payment.");
+            }
+        }
+    };
     const [customers, setCustomers] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [error, setError] = useState('');
@@ -29,7 +42,8 @@ const PaymentForm = () => {
         paymentMode: 'Bank Transfer',
         referenceNumber: '',
         paymentDate: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        thankYouNote: 'Thank you for your business!'
     });
 
     useEffect(() => {
@@ -63,7 +77,8 @@ const PaymentForm = () => {
                 paymentMode: p.paymentMode || 'Bank Transfer',
                 referenceNumber: p.referenceNumber || '',
                 paymentDate: p.paymentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-                notes: p.notes || ''
+                notes: p.notes || '',
+                thankYouNote: p.thankYouNote || 'Thank you for your business!'
             });
         } catch (err) {
             console.error('Error fetching payment', err);
@@ -137,13 +152,18 @@ const PaymentForm = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {isEdit && (
+                        <button type="button" onClick={handleDeletePayment} className="p-2 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Delete Payment">
+                            <Trash2 size={20} />
+                        </button>
+                    )}
                     <button type="button" onClick={() => navigate('/payments')} className="btn-secondary">
                         Cancel
                     </button>
                     <button type="button" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Record Payment'}
+                        {loading ? 'Saving...' : (isEdit ? 'Update Payment' : 'Record Payment')}
                     </button>
                 </div>
             </div>
@@ -251,6 +271,16 @@ const PaymentForm = () => {
                             value={form.notes}
                             onChange={e => handleChange('notes', e.target.value)}
                             placeholder="Add internal notes about this payment..."
+                        />
+                    </InputRow>
+
+                    <InputRow label="Thank You Note">
+                        <input
+                            type="text"
+                            className="input-field max-w-md"
+                            value={form.thankYouNote}
+                            onChange={e => handleChange('thankYouNote', e.target.value)}
+                            placeholder="e.g. Thank you for your business!"
                         />
                     </InputRow>
                 </div>

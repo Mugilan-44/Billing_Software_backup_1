@@ -1,7 +1,30 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { AuthContext } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider, useToast } from './context/ToastContext';
+import axios from 'axios';
+
+const AxiosInterceptor = ({ children }) => {
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    const responseInterceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        const msg = error.response?.data?.message || error.message || 'An unexpected error occurred';
+        showToast(msg, 'error');
+        return Promise.reject(error);
+      }
+    );
+    return () => {
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, [showToast]);
+
+  return children;
+};
 
 // ─── Unified Auth Layout & Pages ───────────────────────────────────────────
 import DashboardLayout from './layouts/DashboardLayout';
@@ -10,7 +33,7 @@ import Register from './pages/Register';
 
 // ─── Super Admin Specific Components ───────────────────────────────────────
 import AdminUsers from './pages/superadmin/AdminUsers';
-import Branches from './pages/superadmin/Branches';
+import ProlyncAdmins from './pages/superadmin/ProlyncAdmins';
 
 // ─── Billing Admin Components ──────────────────────────────────────────────
 import Dashboard from './pages/Dashboard';
@@ -39,8 +62,12 @@ import ChallanForm from './pages/ChallanForm';
 import Payments from './pages/Payments';
 import PaymentForm from './pages/PaymentForm';
 import Settings from './pages/Settings';
+import Features from './pages/Features';
+import Support from './pages/Support';
+import SubscriptionPage from './pages/SubscriptionPage';
 import CreditNotes from './pages/CreditNotes';
 import CreditNoteForm from './pages/CreditNoteForm';
+import CreditNoteViewer from './pages/CreditNoteViewer';
 import Expenses from './pages/Expenses';
 import ExpenseForm from './pages/ExpenseForm';
 import Stock from './pages/Stock';
@@ -52,12 +79,14 @@ import CustomerDashboard from './pages/customer/CustomerDashboard';
 
 // ─── Shared Components ─────────────────────────────────────────────────────
 import PublicInvoice from './pages/PublicInvoice';
+import PublicInvoiceViewer from './pages/PublicInvoiceViewer';
 
 // ─── Dynamic Dashboard Resolver ──────────────────────────────────────────
 const UnifiedDashboard = () => {
   const { user } = useContext(AuthContext);
 
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
   if (user.role === 'CUSTOMER') return <CustomerDashboard />;
 
   // Both SUPER_ADMIN and ADMIN use the standard business Dashboard
@@ -75,14 +104,18 @@ const SuperAdminRoute = ({ children }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AxiosInterceptor>
+          <AuthProvider>
+            <Router>
         <Routes>
           {/* ─── Public Routes ────────────── */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/public/invoice/:id" element={<PublicInvoice />} />
+          <Route path="/invoice/view/:token" element={<PublicInvoiceViewer />} />
 
           {/* Legacy login redirects */}
           <Route path="/admin/login" element={<Navigate to="/login" replace />} />
@@ -138,6 +171,7 @@ function App() {
 
             <Route path="/credit-notes" element={<CreditNotes />} />
             <Route path="/credit-notes/new" element={<CreditNoteForm />} />
+            <Route path="/credit-notes/:id" element={<CreditNoteViewer />} />
             <Route path="/credit-notes/:id/edit" element={<CreditNoteForm />} />
 
             <Route path="/expenses" element={<Expenses />} />
@@ -149,9 +183,13 @@ function App() {
 
             {/* System / Super Admin Settings */}
             <Route path="/settings" element={<Settings />} />
-            <Route path="/super-admin/dashboard" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/settings/subscription" element={<SubscriptionPage />} />
+            <Route path="/admin" element={<SuperAdminRoute><AdminUsers /></SuperAdminRoute>} />
+            <Route path="/super-admin/dashboard" element={<Navigate to="/admin" replace />} />
             <Route path="/super-admin/admins" element={<SuperAdminRoute><AdminUsers /></SuperAdminRoute>} />
-            <Route path="/super-admin/branches" element={<SuperAdminRoute><Branches /></SuperAdminRoute>} />
+            <Route path="/super-admin/prolync-admins" element={<SuperAdminRoute><ProlyncAdmins /></SuperAdminRoute>} />
             {/* Removed redundant /admin/dashboard wrapper */}
             <Route path="/customer/dashboard" element={<Navigate to="/dashboard" replace />} />
 
@@ -161,8 +199,11 @@ function App() {
           {/* ─── Catch-all ────────────────── */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+            </Router>
+          </AuthProvider>
+        </AxiosInterceptor>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

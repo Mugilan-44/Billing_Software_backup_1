@@ -33,7 +33,7 @@ const GstSummary = () => {
     if (loading && !summary) {
         return (
             <div className="flex flex-col justify-center items-center h-96 gap-4">
-                <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Compiling Tax Data...</span>
             </div>
         );
@@ -44,7 +44,7 @@ const GstSummary = () => {
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center shadow-inner">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shadow-inner">
                         <Percent size={24} />
                     </div>
                     <div>
@@ -54,7 +54,7 @@ const GstSummary = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:border-teal-500 transition-colors">
+                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:border-blue-500 transition-colors">
                         <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={dates.startDate} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
                         <span className="text-slate-300 mx-2 text-xs font-bold uppercase">to</span>
                         <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={dates.endDate} onChange={e => setDates({ ...dates, endDate: e.target.value })} />
@@ -71,41 +71,41 @@ const GstSummary = () => {
 
             {/* Summary Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-8 rounded-2xl border-b-4 border-teal-500 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-8 rounded-2xl border-b-4 border-blue-500 shadow-sm relative overflow-hidden group">
                     <div className="absolute right-[-10px] top-[-10px] opacity-5 group-hover:scale-110 transition-transform duration-500">
-                        <TrendingUp size={120} />
+                        <TrendingUp size={120} className="text-blue-500" />
                     </div>
                     <div className="relative z-10">
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Total Output GST (Sales)</p>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-teal-600">₹</span>
+                            <span className="text-xl font-bold text-blue-600">₹</span>
                             <h3 className="text-3xl font-black text-slate-900 leading-none tracking-tight">{(summary?.totalOutputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h3>
                         </div>
-                        <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-teal-600 bg-teal-50 px-3 py-1 rounded-full w-fit">
+                        <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full w-fit">
                             <ShieldCheck size={12} />
                             COMPLIANT DATA
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-2xl border-b-4 border-orange-500 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-8 rounded-2xl border-b-4 border-sky-500 shadow-sm relative overflow-hidden group">
                     <div className="absolute right-[-10px] top-[-10px] opacity-5 group-hover:scale-110 transition-transform duration-500">
-                        <TrendingDown size={120} />
+                        <TrendingDown size={120} className="text-sky-500" />
                     </div>
                     <div className="relative z-10">
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Total Input GST (Purchases)</p>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-orange-600">₹</span>
+                            <span className="text-xl font-bold text-sky-600">₹</span>
                             <h3 className="text-3xl font-black text-slate-900 leading-none tracking-tight">{(summary?.totalInputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h3>
                         </div>
-                        <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full w-fit">
+                        <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full w-fit">
                             <Calculator size={12} />
                             TAX CREDIT ELIGIBLE
                         </div>
                     </div>
                 </div>
 
-                <div className={`p-8 rounded-2xl border-b-4 shadow-xl relative overflow-hidden group ${summary?.netGstPayable > 0 ? 'bg-red-600 border-red-800' : 'bg-emerald-600 border-emerald-800'}`}>
+                <div className={`p-8 rounded-2xl border-b-4 shadow-xl relative overflow-hidden group ${summary?.netGstPayable > 0 ? 'bg-blue-600 border-blue-800' : 'bg-slate-700 border-slate-900'}`}>
                     <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
                         <PieChart size={120} />
                     </div>
@@ -128,11 +128,11 @@ const GstSummary = () => {
                 <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Tax Mapping Transactions</h3>
                     <div className="flex gap-2">
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 rounded text-[9px] font-black text-teal-600 border border-teal-100">
-                            <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div> OUTPUT
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded text-[9px] font-black text-blue-600 border border-blue-100">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> OUTPUT
                         </div>
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 rounded text-[9px] font-black text-orange-600 border border-orange-100">
-                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div> INPUT
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded text-[9px] font-black text-sky-600 border border-sky-100">
+                            <div className="w-1.5 h-1.5 bg-sky-500 rounded-full"></div> INPUT
                         </div>
                     </div>
                 </div>
@@ -149,7 +149,7 @@ const GstSummary = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {summary?.transactions.length === 0 ? (
+                            {(!summary?.transactions || summary.transactions.length === 0) ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3">
@@ -162,7 +162,7 @@ const GstSummary = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                summary?.transactions.map(t => (
+                                (Array.isArray(summary.transactions) ? summary.transactions : []).map(t => (
                                     <tr key={t.id} className="hover:bg-slate-50/50 transition-colors cursor-default">
                                         <td className="px-6 py-5 text-xs font-bold text-slate-500">{t.date}</td>
                                         <td className="px-6 py-5 whitespace-nowrap">
@@ -170,7 +170,7 @@ const GstSummary = () => {
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="text-sm font-bold text-slate-900">{t.partyName}</div>
-                                            <div className={`text-[9px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded w-fit ${t.type === 'Output' ? 'bg-teal-50 text-teal-600' : 'bg-orange-50 text-orange-600 font-black'}`}>
+                                            <div className={`text-[9px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded w-fit ${t.type === 'Output' ? 'bg-blue-50 text-blue-600' : 'bg-sky-50 text-sky-600 font-black'}`}>
                                                 {t.type} TRANSACTION
                                             </div>
                                         </td>
@@ -178,7 +178,7 @@ const GstSummary = () => {
                                             <span className="text-xs font-mono font-bold text-slate-400 tracking-tight">{t.gstin || 'NOT PROVIDED'}</span>
                                         </td>
                                         <td className="px-6 py-5 text-right font-bold text-slate-900">₹{t.taxableValue?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                        <td className={`px-6 py-5 text-right pr-10 font-black ${t.type === 'Output' ? 'text-teal-600' : 'text-orange-600'}`}>
+                                        <td className={`px-6 py-5 text-right pr-10 font-black ${t.type === 'Output' ? 'text-blue-600' : 'text-sky-600'}`}>
                                             {t.type === 'Output' ? '+' : '-'} ₹{t.taxAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </td>
                                     </tr>

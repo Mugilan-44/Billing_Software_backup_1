@@ -12,6 +12,7 @@ const SettingsDrawer = ({ isOpen, onClose, user }) => {
             title: 'ORGANIZATION',
             items: [
                 { name: 'Organization Profile', icon: <Building2 size={18} />, path: '/settings' },
+                { name: 'Subscription Plan', icon: <CreditCard size={18} />, path: '/settings/subscription' },
                 { name: 'Branding', icon: <Palette size={18} />, path: '#' },
                 { name: 'Usage Stats', icon: <BarChart size={18} />, path: '#' },
             ]
@@ -75,7 +76,7 @@ const SettingsDrawer = ({ isOpen, onClose, user }) => {
                         <input
                             type="text"
                             placeholder="Search Settings"
-                            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -93,9 +94,9 @@ const SettingsDrawer = ({ isOpen, onClose, user }) => {
                                         key={itemIdx}
                                         to={item.path}
                                         onClick={onClose}
-                                        className="flex items-center gap-4 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-all group"
+                                        className="flex items-center gap-4 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700 transition-all group"
                                     >
-                                        <span className="text-slate-400 group-hover:text-blue-500 transition-colors">{item.icon}</span>
+                                        <span className="text-slate-400 group-hover:text-violet-500 transition-colors">{item.icon}</span>
                                         <span className="text-sm font-medium">{item.name}</span>
                                     </Link>
                                 ))}
