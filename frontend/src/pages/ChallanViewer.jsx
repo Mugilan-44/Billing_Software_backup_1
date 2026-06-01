@@ -61,43 +61,12 @@ const ChallanViewer = () => {
         fetchChallan();
     }, [id]);
 
-    const handleDownloadPDF = async () => {
-        setDownloading(true);
-        try {
-            const token = localStorage.getItem('token')
-                || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
-                || '';
-
-            const response = await fetch(`${API_URL}/api/challans/${id}/download?token=${token}`, {
-                method: 'GET',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            });
-
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Challan-${challanData.challan.challanNumber}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            showToast('PDF downloaded successfully!', 'success');
-        } catch (err) {
-            console.error('PDF download failed, using client fallback:', err);
-            const element = quoteRef.current;
-            const opt = {
-                margin: 0,
-                filename: `Challan_${challanData.challan.challanNumber}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().set(opt).from(element).save();
-        } finally {
-            setDownloading(false);
-        }
+    const handleDownloadPDF = () => {
+        const token = localStorage.getItem('token')
+            || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
+            || '';
+        window.location.href = `${API_URL}/api/challans/${id}/download?token=${token}`;
+        showToast('PDF download started!', 'success');
     };
 
     const openEmailModal = () => {

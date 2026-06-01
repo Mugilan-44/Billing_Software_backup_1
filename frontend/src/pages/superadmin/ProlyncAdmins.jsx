@@ -105,14 +105,15 @@ const ProlyncAdmins = () => {
                                         Loading administrators list...
                                     </td>
                                 </tr>
-                            ) : superAdmins.length === 0 ? (
+                            ) : (superAdmins || []).length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-16 text-center text-[#86868b] font-medium">
                                         No platform administrators found.
                                     </td>
                                 </tr>
-                            ) : superAdmins.map(sa => {
-                                const isSelf = currentUser && currentUser._id === sa._id;
+                            ) : (superAdmins || []).map(sa => {
+                                if (!sa) return null;
+                                const isSelf = currentUser && currentUser._id === sa?._id;
                                 return (
                                     <tr key={sa._id} className="hover:bg-slate-50/50 transition-all duration-150">
                                         <td className="px-6 py-6">

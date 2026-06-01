@@ -49,32 +49,12 @@ const PublicInvoiceViewer = () => {
         }
     }, [token]);
 
-    const handleDownloadPDF = async () => {
+    const handleDownloadPDF = () => {
         setDownloading(true);
-        try {
-            const response = await fetch(`${API_URL}/api/public/invoices/${token}/download`, {
-                method: 'GET',
-            });
-
-            if (!response.ok) {
-                throw new Error(`Download failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Invoice-${invoiceData?.invoice?.invoiceNumber || 'public'}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error('Download failed:', err);
-            alert('PDF download failed. Please use the Print button and choose Save as PDF.');
-        } finally {
+        window.location.href = `${API_URL}/api/public/invoices/${token}/download`;
+        setTimeout(() => {
             setDownloading(false);
-        }
+        }, 3000);
     };
 
     if (loading) {

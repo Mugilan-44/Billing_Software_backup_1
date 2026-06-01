@@ -201,29 +201,39 @@ const AdminUsers = () => {
         }
     };
 
-    const filteredAdmins = admins.filter(a =>
-        (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
-        (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
-        (a.companyId?.businessName || '').toLowerCase().includes(search.toLowerCase())
+    const filteredAdmins = (admins || []).filter(a =>
+        a && (
+            (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
+            (a.companyId?.businessName || '').toLowerCase().includes(search.toLowerCase())
+        )
     );
 
     const sortedAdmins = [...filteredAdmins].sort((a, b) => {
-        const dateA = a.subscription?.expiryDate ? new Date(a.subscription.expiryDate) : new Date(8640000000000000);
-        const dateB = b.subscription?.expiryDate ? new Date(b.subscription.expiryDate) : new Date(8640000000000000);
+        if (!a || !b) return 0;
+        const dateA = a.subscription?.expiryDate && !isNaN(new Date(a.subscription.expiryDate).getTime()) ? new Date(a.subscription.expiryDate) : new Date(8640000000000000);
+        const dateB = b.subscription?.expiryDate && !isNaN(new Date(b.subscription.expiryDate).getTime()) ? new Date(b.subscription.expiryDate) : new Date(8640000000000000);
         return dateA - dateB;
     });
 
     const cards = [
-        { label: 'Total Admins', value: stats.totalAdmins, icon: <Users size={20} />, color: 'bg-slate-50 border-slate-200/60 text-[#1d1d1f]' },
-        { label: 'Active Admins', value: stats.activeAdmins, icon: <CheckCircle size={20} />, color: 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' },
-        { label: 'Deactive Admins', value: stats.deactiveAdmins, icon: <ShieldAlert size={20} />, color: 'bg-[#ff3b30]/10 border-[#ff3b30]/20 text-[#ff3b30]' },
+        { label: 'Total Admins', value: stats?.totalAdmins ?? 0, icon: <Users size={20} />, color: 'bg-slate-50 border-slate-200/60 text-[#1d1d1f]' },
+        { label: 'Active Admins', value: stats?.activeAdmins ?? 0, icon: <CheckCircle size={20} />, color: 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' },
+        { label: 'Deactive Admins', value: stats?.deactiveAdmins ?? 0, icon: <ShieldAlert size={20} />, color: 'bg-[#ff3b30]/10 border-[#ff3b30]/20 text-[#ff3b30]' },
     ];
 
     const getSubscriptionProgress = (sub) => {
-        if (!sub) return { text: 'No Subscription', color: 'text-slate-400', pct: 0, daysLeft: 0, status: 'EXPIRED' };
+        if (!sub || !sub.startDate || !sub.expiryDate) {
+            return { text: 'No Subscription', dateStr: 'Ends: —', color: 'text-slate-400', pct: 0, daysLeft: 0, status: 'EXPIRED' };
+        }
         const now = new Date();
         const start = new Date(sub.startDate);
         const expiry = new Date(sub.expiryDate);
+
+        if (isNaN(start.getTime()) || isNaN(expiry.getTime())) {
+            return { text: 'Invalid Dates', dateStr: 'Ends: —', color: 'text-slate-400', pct: 0, daysLeft: 0, status: 'EXPIRED' };
+        }
+        
         const totalDuration = expiry - start;
         const elapsed = now - start;
         const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
@@ -334,8 +344,8 @@ const AdminUsers = () => {
                                             <div className="flex items-center justify-between text-xs mb-2 gap-4">
                                                 <span className={`font-bold ${subInfo.color}`}>{subInfo.text}</span>
                                                 <div className="text-right text-[10px] text-slate-400 font-medium">
-                                                    <div>Subscribed: <span className="text-slate-700 font-bold">{a.subscription?.startDate ? new Date(a.subscription.startDate).toLocaleDateString('en-GB') : '—'}</span></div>
-                                                    <div>Ends: <span className="text-slate-700 font-bold">{a.subscription?.expiryDate ? new Date(a.subscription.expiryDate).toLocaleDateString('en-GB') : '—'}</span></div>
+                                                    <div>Subscribed: <span className="text-slate-700 font-bold">{a.subscription?.startDate && !isNaN(new Date(a.subscription.startDate).getTime()) ? new Date(a.subscription.startDate).toLocaleDateString('en-GB') : '—'}</span></div>
+                                                    <div>Ends: <span className="text-slate-700 font-bold">{a.subscription?.expiryDate && !isNaN(new Date(a.subscription.expiryDate).getTime()) ? new Date(a.subscription.expiryDate).toLocaleDateString('en-GB') : '—'}</span></div>
                                                 </div>
                                             </div>
                                             <div className="w-40 bg-slate-100 h-1 rounded-full overflow-hidden">

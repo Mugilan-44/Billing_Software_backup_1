@@ -1111,39 +1111,16 @@ const InvoiceViewer = () => {
     };
 
     // ── Safe download using fetch + Blob (no page freeze) ──────────────────────
-    const handleDownloadPDF = async () => {
+    const handleDownloadPDF = () => {
         setDownloading(true);
-        try {
-            const token = localStorage.getItem('token')
-                || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
-                || '';
-
-            const response = await fetch(`${API_URL}/api/invoices/${id}/download?token=${token}&template=${template}&color=${encodeURIComponent(accentColor)}`, {
-                method: 'GET',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Download failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Invoice-${invoiceData?.invoice?.invoiceNumber || id}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error('Download failed:', err);
-            // Fallback: try print
-            alert('PDF download failed. Please use the Print button and save as PDF.');
-        } finally {
+        const token = localStorage.getItem('token')
+            || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
+            || '';
+        window.location.href = `${API_URL}/api/invoices/${id}/download?token=${token}&template=${template}&color=${encodeURIComponent(accentColor)}`;
+        showToast('PDF download started!', 'success');
+        setTimeout(() => {
             setDownloading(false);
-        }
+        }, 3000);
     };
 
     const openEmailModal = () => {

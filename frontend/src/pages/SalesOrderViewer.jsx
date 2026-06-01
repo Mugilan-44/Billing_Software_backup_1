@@ -4,6 +4,7 @@ import axios from '../utils/api';
 import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, FileCheck, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import { useToast } from '../context/ToastContext';
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -23,6 +24,8 @@ const SalesOrderViewer = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [orderData, setOrderData] = useState(null);
+    const [downloading, setDownloading] = useState(false);
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const quoteRef = useRef(null);
 
@@ -53,35 +56,16 @@ const SalesOrderViewer = () => {
         fetchOrder();
     }, [id]);
 
-    const handleDownloadPDF = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/api/sales-orders/${id}/download?token=${token}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Order-${orderData.order.orderNumber}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        } catch (err) {
-            console.error('PDF download failed:', err);
-            const element = quoteRef.current;
-            const opt = {
-                margin: 0,
-                filename: `Order_${orderData.order.orderNumber}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().set(opt).from(element).save();
-        }
+    const handleDownloadPDF = () => {
+        setDownloading(true);
+        const token = localStorage.getItem('token')
+            || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
+            || '';
+        window.location.href = `${API_URL}/api/sales-orders/${id}/download?token=${token}`;
+        showToast('PDF download started!', 'success');
+        setTimeout(() => {
+            setDownloading(false);
+        }, 3000);
     };
 
     const handleSendEmail = async () => {
@@ -157,8 +141,17 @@ const SalesOrderViewer = () => {
                         <Share2 size={18} /> Share
                     </button>
 
-                    <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all">
-                        <Download size={18} /> Download
+                    <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all disabled:opacity-75">
+                        {downloading ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Downloading...
+                            </>
+                        ) : (
+                            <>
+                                <Download size={18} /> Download
+                            </>
+                        )}
                     </button>
                 </div>
             </div>

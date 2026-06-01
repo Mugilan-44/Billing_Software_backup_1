@@ -73,38 +73,12 @@ const CreditNoteViewer = () => {
         setShowColors(false);
     };
 
-    const handleDownloadPDF = async () => {
-        setDownloading(true);
-        try {
-            const token = localStorage.getItem('token')
-                || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
-                || '';
-
-            const response = await fetch(`${API_URL}/api/credit-notes/${id}/download?token=${token}&color=${encodeURIComponent(accentColor)}`, {
-                method: 'GET',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            });
-
-            if (!response.ok) {
-                throw new Error(`Download failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `CreditNote-${cnData?.cn?.cnNumber || id}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            showToast('PDF downloaded successfully!', 'success');
-        } catch (err) {
-            console.error('Download failed:', err);
-            alert('PDF download failed. Please use the Print button and save as PDF.');
-        } finally {
-            setDownloading(false);
-        }
+    const handleDownloadPDF = () => {
+        const token = localStorage.getItem('token')
+            || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
+            || '';
+        window.location.href = `${API_URL}/api/credit-notes/${id}/download?token=${token}&color=${encodeURIComponent(accentColor)}`;
+        showToast('PDF download started!', 'success');
     };
 
     const openEmailModal = () => {
