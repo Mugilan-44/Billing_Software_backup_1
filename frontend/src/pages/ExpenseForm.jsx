@@ -127,10 +127,11 @@ const ExpenseForm = () => {
         }
 
         try {
-            await axios.post('/api/expenses', {
-                ...formData,
-                amount: Number(formData.amount)
-            });
+            const cleanedData = { ...formData, amount: Number(formData.amount) };
+            if (!cleanedData.vendorId) delete cleanedData.vendorId;
+            if (!cleanedData.customerId) delete cleanedData.customerId;
+
+            await axios.post('/api/expenses', cleanedData);
             navigate('/expenses');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to record expense');
