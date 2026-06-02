@@ -1,7 +1,7 @@
-import { useState, useContext, useEffect, useRef } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, LogIn, AlertCircle, TrendingUp, Clock, ShieldCheck, Layers, FileText, CheckCircle2 } from 'lucide-react';
 
 const Login = () => {
     const { loginUser } = useContext(AuthContext);
@@ -38,72 +38,30 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex font-sans">
-            {/* Left Panel: Corporate / Brand Showcase (hidden on mobile) */}
-            <div className="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden flex-col justify-between p-12 border-r border-slate-800">
-                {/* Subtle dark pattern overlay */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-40" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-950/30 via-slate-900 to-slate-900" />
-
-                <div className="relative z-10 flex items-center gap-3">
+        <div className="min-h-screen bg-white flex font-sans text-slate-800">
+            {/* Left Panel: Clean Sign-In Form Box */}
+            <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 md:p-12 lg:p-16 bg-white shrink-0">
+                <div className="flex items-center gap-3">
                     <img
                         src="/logo.png"
                         alt="Prolync Logo"
-                        className="w-10 h-10 rounded-xl bg-white p-1.5 object-contain border border-slate-700/50 shadow-md"
+                        className="w-10 h-10 rounded-xl bg-slate-50 p-1.5 object-contain border border-slate-200 shadow-sm"
                     />
-                    <span className="text-white text-lg font-bold tracking-tight">Prolync Billing</span>
+                    <span className="text-slate-900 text-lg font-bold tracking-tight">Prolync Billing</span>
                 </div>
 
-                <div className="relative z-10 my-auto max-w-md space-y-6">
-                    <h2 className="text-4xl font-extrabold text-white leading-tight">
-                        Streamline your business operations with <span className="text-blue-500">Prolync</span>.
-                    </h2>
-                    <p className="text-slate-400 text-base leading-relaxed">
-                        Generate professional invoices, manage real-time inventory, track expenses, and monitor financial performance with our secure enterprise platform.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                        <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-4 backdrop-blur-sm">
-                            <div className="text-2xl font-bold text-white">99.9%</div>
-                            <div className="text-xs text-slate-400 mt-1">Platform Uptime</div>
-                        </div>
-                        <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-4 backdrop-blur-sm">
-                            <div className="text-2xl font-bold text-white">256-bit</div>
-                            <div className="text-xs text-slate-400 mt-1">SSL Encryption</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative z-10 text-xs text-slate-500">
-                    © {new Date().getFullYear()} Prolync Software Inc. All rights reserved.
-                </div>
-            </div>
-
-            {/* Right Panel: Clean Login Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-white dark:bg-slate-950">
-                <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    
-                    {/* Brand logo for mobile view only */}
-                    <div className="lg:hidden flex items-center gap-3 mb-6">
-                        <img
-                            src="/logo.png"
-                            alt="Prolync Logo"
-                            className="w-10 h-10 rounded-xl bg-white p-1.5 object-contain border border-slate-200 shadow-sm"
-                        />
-                        <span className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">Prolync Billing</span>
-                    </div>
-
+                <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
                     <div className="space-y-2">
-                        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
                             Sign In
                         </h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Welcome back! Please enter your credentials to access your account.
+                        <p className="text-sm text-slate-500">
+                            Access your invoicing, billing accounts, and stock analytics dashboard.
                         </p>
                     </div>
 
                     {error && (
-                        <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-red-700 dark:text-red-400 text-sm animate-in fade-in">
+                        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm animate-in fade-in">
                             <AlertCircle size={16} className="shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
@@ -111,12 +69,12 @@ const Login = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                                 Email Address
                             </label>
                             <input
                                 type="email"
-                                className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                                 autoComplete="email"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
@@ -125,13 +83,15 @@ const Login = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                                Password
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Password
+                                </label>
+                            </div>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
-                                    className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
+                                    className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
                                     autoComplete="current-password"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
@@ -141,7 +101,7 @@ const Login = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                                     tabIndex={-1}
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -167,6 +127,105 @@ const Login = () => {
                             )}
                         </button>
                     </form>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                    © {new Date().getFullYear()} Prolync Software Inc. All rights reserved.
+                </div>
+            </div>
+
+            {/* Right Panel: Clean White/Slate-50 Statistics & Billing Illustrations */}
+            <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-between p-12 lg:p-16 border-l border-slate-200/60 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
+                
+                <div className="relative z-10 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200/60 px-3 py-1.5 rounded-full shadow-sm">Enterprise Billing Solution</span>
+                    <div className="flex gap-4">
+                        <span className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                            <ShieldCheck size={14} className="text-blue-500" /> SSL SECURE
+                        </span>
+                    </div>
+                </div>
+
+                {/* Animated Mockup Dashboard Stats Grid */}
+                <div className="relative z-10 my-auto max-w-xl w-full mx-auto space-y-8">
+                    <div className="space-y-3">
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                            Real-time Revenue & <br />Invoice Operations
+                        </h2>
+                        <p className="text-slate-500 text-sm max-w-md">
+                            Generate GST-compliant invoices, track active client balances, and monitor purchase collections instantly on one screen.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Revenue growth card */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-all duration-300">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Revenue This Month</span>
+                                <div className="p-1.5 bg-green-50 border border-green-100 rounded-lg text-green-600">
+                                    <TrendingUp size={16} />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-slate-900">₹4,82,900.00</div>
+                                <span className="inline-flex items-center text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                    +18.4% vs last month
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Collections / Overdue card */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-all duration-300">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Collections</span>
+                                <div className="p-1.5 bg-amber-50 border border-amber-100 rounded-lg text-amber-600">
+                                    <Clock size={16} />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-slate-900">₹34,150.00</div>
+                                <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                                    3 accounts overdue
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Invoices Mockup Card */}
+                    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300">
+                        <div className="bg-white border-b border-slate-200/60 px-5 py-3.5 flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <FileText size={14} className="text-slate-400" /> Recent Transactions
+                            </span>
+                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Live View</span>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                            {[
+                                { ref: 'INV-2026-042', client: 'Acme Corp', amt: '₹1,24,000.00', status: 'Paid', statusColor: 'text-green-600 bg-green-50 border-green-100' },
+                                { ref: 'INV-2026-041', client: 'Global Logistics', amt: '₹45,500.00', status: 'Sent', statusColor: 'text-blue-600 bg-blue-50 border-blue-100' },
+                                { ref: 'INV-2026-040', client: 'Zenith Tech', amt: '₹18,400.00', status: 'Overdue', statusColor: 'text-red-600 bg-red-50 border-red-100' }
+                            ].map((inv, idx) => (
+                                <div key={idx} className="px-5 py-3 flex items-center justify-between text-xs hover:bg-slate-50/30 transition-colors">
+                                    <div className="space-y-0.5">
+                                        <div className="font-bold text-slate-800">{inv.client}</div>
+                                        <div className="text-[10px] font-mono text-slate-400">{inv.ref}</div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-slate-700">{inv.amt}</span>
+                                        <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold ${inv.statusColor}`}>
+                                            {inv.status}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative z-10 flex justify-between text-xs text-slate-400">
+                    <span className="flex items-center gap-1"><CheckCircle2 size={13} className="text-green-500" /> 256-bit Bank Grade Security</span>
+                    <span>v2.1.0</span>
                 </div>
             </div>
         </div>
