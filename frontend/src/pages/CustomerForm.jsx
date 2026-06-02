@@ -162,7 +162,15 @@ const CustomerForm = () => {
     };
 
     const handleChange = (field, value) => {
-        setForm(prev => ({ ...prev, [field]: value }));
+        setForm(prev => {
+            const updated = { ...prev, [field]: value };
+            if (field === 'companyName') {
+                if (!prev.displayName || prev.displayName === prev.companyName) {
+                    updated.displayName = value;
+                }
+            }
+            return updated;
+        });
     };
 
     const handleAddressChange = (type, field, value) => {
@@ -374,7 +382,7 @@ const CustomerForm = () => {
                         <input
                             type="text"
                             className="input-field max-w-md"
-                            value={form.displayName || form.companyName}
+                            value={form.displayName}
                             onChange={e => handleChange('displayName', e.target.value)}
                             placeholder="Select or type to add"
                         />

@@ -235,7 +235,13 @@ export default function QuickCustomerModal({ isOpen, onClose, onSuccess }) {
                                     type="text"
                                     className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
                                     value={companyName}
-                                    onChange={e => setCompanyName(e.target.value)}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setCompanyName(val);
+                                        if (!displayName || displayName === companyName) {
+                                            setDisplayName(val);
+                                        }
+                                    }}
                                     placeholder={customerType === 'Individual' ? 'Leave blank to auto-fill' : 'Company / Business Name'}
                                     required={customerType === 'Business'}
                                 />
@@ -245,7 +251,7 @@ export default function QuickCustomerModal({ isOpen, onClose, onSuccess }) {
                                 <input
                                     type="text"
                                     className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
-                                    value={displayName || companyName}
+                                    value={displayName}
                                     onChange={e => setDisplayName(e.target.value)}
                                     placeholder="Selected Display Name"
                                 />
