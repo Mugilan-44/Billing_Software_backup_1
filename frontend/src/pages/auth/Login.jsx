@@ -37,6 +37,8 @@ const AnimatedCounter = ({ targetValue, duration = 1200, prefix = '₹', suffix 
     );
 };
 
+const ROTATING_WORDS = ["Insights", "Expenses", "Sales", "Profit", "Revenue", "Reports"];
+
 const Login = () => {
     const { loginUser } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -45,6 +47,20 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const [wordIndex, setWordIndex] = useState(0);
+    const [fade, setFade] = useState(true);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setFade(false);
+            setTimeout(() => {
+                setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
+                setFade(true);
+            }, 300);
+        }, 2500);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -105,11 +121,11 @@ const Login = () => {
 
                 <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
                     <div className="space-y-2">
-                        <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
-                            Sign In
+                        <h1 className="text-4xl font-extrabold text-slate-950 tracking-tight">
+                            Hello!
                         </h1>
-                        <p className="text-sm text-slate-500">
-                            Access your invoicing, billing accounts, and stock analytics dashboard.
+                        <p className="text-sm font-medium text-slate-500">
+                            Welcome back to your workspace.
                         </p>
                     </div>
 
@@ -165,17 +181,17 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all active:scale-[0.98] mt-6"
+                            className="w-full bg-slate-950 hover:bg-slate-900 text-white flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] mt-6"
                         >
                             {loading ? (
                                 <>
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Signing in...
+                                    Logging in...
                                 </>
                             ) : (
                                 <>
                                     <LogIn size={16} />
-                                    Sign In
+                                    Log In
                                 </>
                             )}
                         </button>
@@ -191,26 +207,8 @@ const Login = () => {
             <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-between p-12 lg:p-16 border-l border-slate-200/60 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
                 
-                <div className="relative z-10 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-200/60 px-3 py-1.5 rounded-full shadow-sm">Enterprise Billing Solution</span>
-                    <div className="flex gap-4">
-                        <span className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                            <ShieldCheck size={14} className="text-blue-500" /> SSL SECURE
-                        </span>
-                    </div>
-                </div>
-
-                {/* Animated Mockup Dashboard Stats Grid */}
-                <div className="relative z-10 my-auto max-w-xl w-full mx-auto space-y-8">
-                    <div className="space-y-3">
-                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                            Real-time Revenue & <br />Invoice Operations
-                        </h2>
-                        <p className="text-slate-500 text-sm max-w-md">
-                            Generate GST-compliant invoices, track active client balances, and monitor purchase collections instantly on one screen.
-                        </p>
-                    </div>
-
+                {/* Top Section: Illustrations (Numbers & Graph) */}
+                <div className="relative z-10 w-full max-w-xl mx-auto space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Revenue growth card */}
                         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-all duration-300">
@@ -300,41 +298,19 @@ const Login = () => {
                             <span>Week 4</span>
                         </div>
                     </div>
-
-                    {/* Recent Invoices Mockup Card */}
-                    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300">
-                        <div className="bg-white border-b border-slate-200/60 px-5 py-3.5 flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                <FileText size={14} className="text-slate-400" /> Recent Transactions
-                            </span>
-                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Live View</span>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            {[
-                                { ref: 'INV-2026-042', client: 'Acme Corp', amt: '₹1,24,000.00', status: 'Paid', statusColor: 'text-green-600 bg-green-50 border-green-100' },
-                                { ref: 'INV-2026-041', client: 'Global Logistics', amt: '₹45,500.00', status: 'Sent', statusColor: 'text-blue-600 bg-blue-50 border-blue-100' },
-                                { ref: 'INV-2026-040', client: 'Zenith Tech', amt: '₹18,400.00', status: 'Overdue', statusColor: 'text-red-600 bg-red-50 border-red-100' }
-                            ].map((inv, idx) => (
-                                <div key={idx} className="px-5 py-3 flex items-center justify-between text-xs hover:bg-slate-50/30 transition-colors">
-                                    <div className="space-y-0.5">
-                                        <div className="font-bold text-slate-800">{inv.client}</div>
-                                        <div className="text-[10px] font-mono text-slate-400">{inv.ref}</div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold text-slate-700">{inv.amt}</span>
-                                        <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold ${inv.statusColor}`}>
-                                            {inv.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
 
-                <div className="relative z-10 flex justify-between text-xs text-slate-400">
-                    <span className="flex items-center gap-1"><CheckCircle2 size={13} className="text-green-500" /> 256-bit Bank Grade Security</span>
-                    <span>v2.1.0</span>
+                {/* Bottom Section: Rotating Discovery Text */}
+                <div className="relative z-10 w-full max-w-xl mx-auto pt-8 border-t border-slate-100 mt-8">
+                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex flex-wrap items-center gap-x-2">
+                        <span>Let's discover</span>
+                        <span className={`text-blue-600 transition-opacity duration-300 min-w-[120px] ${fade ? 'opacity-100' : 'opacity-0'}`}>
+                            {ROTATING_WORDS[wordIndex]}
+                        </span>
+                    </h2>
+                    <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
+                        Analyze business cashflow, track outstanding invoices, and manage client bills.
+                    </p>
                 </div>
             </div>
         </div>
