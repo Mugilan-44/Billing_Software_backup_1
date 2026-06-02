@@ -41,19 +41,43 @@ export const getSalesOrderById = async (req, res) => {
 export const createSalesOrder = async (req, res) => {
     try {
         const { customerId, items, discount, expectedDeliveryDate, notes, quotationId, buyersRef, modeOfPayment,
-                includeTerms = true, includeSignature = false, includeBankDetails = true, includeUpiQr = true } = req.body;
+                includeTerms = true, includeSignature = false, includeBankDetails = true, includeUpiQr = true,
+                isTaxed = true, taxType = 'GST', taxRate = null, useProductSpecificTax = true,
+                tdsTcsType = 'None', tdsPercentage = 0, tcsPercentage = 0, adjustment = 0 } = req.body;
 
         let subTotal = 0;
         let taxTotal = 0;
-
-        items.forEach(item => {
+        const computedItems = (items || []).map(item => {
             const amount = item.quantity * item.rate;
-            const tax = amount * ((item.gstPercentage || item.gstPercent || 0) / 100);
-            subTotal += amount;
-            taxTotal += tax;
+            const discountPercent = item.discountPercent || item.discount || 0;
+            const discountAmt = amount * (discountPercent / 100);
+            const itemSubtotal = amount - discountAmt;
+
+            const itemTaxRate = isTaxed
+                ? (useProductSpecificTax ? (item.gstPercentage || item.gstPercent || 0) : (taxRate !== null && taxRate !== undefined && taxRate !== '' ? Number(taxRate) : (item.gstPercentage || item.gstPercent || 0)))
+                : 0;
+
+            const itemTax = itemSubtotal * (itemTaxRate / 100);
+            subTotal += itemSubtotal;
+            taxTotal += itemTax;
+
+            return {
+                ...item,
+                gstPercentage: itemTaxRate,
+                gstPercent: itemTaxRate,
+                amount: itemSubtotal + itemTax
+            };
         });
 
-        const grandTotal = Math.round(subTotal + taxTotal - (discount || 0));
+        let calculatedTdsAmount = 0;
+        let calculatedTcsAmount = 0;
+        if (tdsTcsType === 'TDS') {
+            calculatedTdsAmount = subTotal * ((Number(tdsPercentage) || 0) / 100);
+        } else if (tdsTcsType === 'TCS') {
+            calculatedTcsAmount = subTotal * ((Number(tcsPercentage) || 0) / 100);
+        }
+
+        const grandTotal = Math.round(subTotal + taxTotal - (Number(discount) || 0) - calculatedTdsAmount + calculatedTcsAmount + (Number(adjustment) || 0));
 
         const orderNumber = await getNextSequenceValue('salesOrder', 'SO');
 
@@ -61,9 +85,9 @@ export const createSalesOrder = async (req, res) => {
             orderNumber,
             customerId,
             quotationId,
-            items,
-            lineItems: items,
-            discount: discount || 0,
+            items: computedItems,
+            lineItems: computedItems,
+            discount: Number(discount) || 0,
             subTotal,
             subtotal: subTotal,
             taxTotal,
@@ -75,7 +99,17 @@ export const createSalesOrder = async (req, res) => {
             includeTerms,
             includeSignature,
             includeBankDetails,
-            includeUpiQr
+            includeUpiQr,
+            isTaxed,
+            taxType,
+            taxRate,
+            useProductSpecificTax,
+            tdsTcsType,
+            tdsPercentage: Number(tdsPercentage) || 0,
+            tdsAmount: calculatedTdsAmount,
+            tcsPercentage: Number(tcsPercentage) || 0,
+            tcsAmount: calculatedTcsAmount,
+            adjustment: Number(adjustment) || 0
         };
 
         if (req.user.role !== 'SUPER_ADMIN') {
@@ -132,20 +166,80 @@ export const updateSalesOrder = async (req, res) => {
         }
 
         const { customerId, items, discount, expectedDeliveryDate, notes, status, buyersRef, modeOfPayment,
-                includeTerms, includeSignature, includeBankDetails, includeUpiQr } = req.body;
+                includeTerms, includeSignature, includeBankDetails, includeUpiQr,
+                isTaxed, taxType, taxRate, useProductSpecificTax,
+                tdsTcsType, tdsPercentage, tcsPercentage, adjustment = 0 } = req.body;
 
         if (customerId) salesOrder.customerId = customerId;
+        if (isTaxed !== undefined) salesOrder.isTaxed = isTaxed;
+        if (taxType !== undefined) salesOrder.taxType = taxType;
+        if (taxRate !== undefined) salesOrder.taxRate = taxRate;
+        if (useProductSpecificTax !== undefined) salesOrder.useProductSpecificTax = useProductSpecificTax;
+        if (tdsTcsType !== undefined) salesOrder.tdsTcsType = tdsTcsType;
+
         if (items) {
-            salesOrder.items = items;
-            salesOrder.lineItems = items;
-            
             let subTotal = 0;
             let taxTotal = 0;
-            items.forEach(item => {
+            const computedItems = items.map(item => {
                 const amount = item.quantity * item.rate;
-                const tax = amount * ((item.gstPercentage || item.gstPercent || 0) / 100);
-                subTotal += amount;
-                taxTotal += tax;
+                const discountPercent = item.discountPercent || item.discount || 0;
+                const discountAmt = amount * (discountPercent / 100);
+                const itemSubtotal = amount - discountAmt;
+                
+                const currentIsTaxed = isTaxed !== undefined ? isTaxed : salesOrder.isTaxed;
+                const currentUseProd = useProductSpecificTax !== undefined ? useProductSpecificTax : salesOrder.useProductSpecificTax;
+                const currentGlobalRate = taxRate !== undefined ? taxRate : salesOrder.taxRate;
+
+                const itemTaxRate = currentIsTaxed
+                    ? (currentUseProd ? (item.gstPercentage || item.gstPercent || 0) : (currentGlobalRate !== null && currentGlobalRate !== undefined && currentGlobalRate !== '' ? Number(currentGlobalRate) : (item.gstPercentage || item.gstPercent || 0)))
+                    : 0;
+
+                const itemTax = itemSubtotal * (itemTaxRate / 100);
+                subTotal += itemSubtotal;
+                taxTotal += itemTax;
+
+                return {
+                    ...item,
+                    gstPercentage: itemTaxRate,
+                    gstPercent: itemTaxRate,
+                    amount: itemSubtotal + itemTax
+                };
+            });
+            salesOrder.items = computedItems;
+            salesOrder.lineItems = computedItems;
+            salesOrder.subTotal = subTotal;
+            salesOrder.subtotal = subTotal;
+            salesOrder.taxTotal = taxTotal;
+        } else {
+            let subTotal = salesOrder.subTotal || 0;
+            let taxTotal = salesOrder.taxTotal || 0;
+            const currentItems = salesOrder.items || [];
+            const currentIsTaxed = isTaxed !== undefined ? isTaxed : salesOrder.isTaxed;
+            const currentUseProd = useProductSpecificTax !== undefined ? useProductSpecificTax : salesOrder.useProductSpecificTax;
+            const currentGlobalRate = taxRate !== undefined ? taxRate : salesOrder.taxRate;
+
+            taxTotal = 0;
+            subTotal = 0;
+            salesOrder.items = currentItems.map(item => {
+                const amount = item.quantity * item.rate;
+                const discountPercent = item.discountPercent || item.discount || 0;
+                const discountAmt = amount * (discountPercent / 100);
+                const itemSubtotal = amount - discountAmt;
+                
+                const itemTaxRate = currentIsTaxed
+                    ? (currentUseProd ? (item.gstPercentage || item.gstPercent || 0) : (currentGlobalRate !== null && currentGlobalRate !== undefined && currentGlobalRate !== '' ? Number(currentGlobalRate) : (item.gstPercentage || item.gstPercent || 0)))
+                    : 0;
+
+                const itemTax = itemSubtotal * (itemTaxRate / 100);
+                subTotal += itemSubtotal;
+                taxTotal += itemTax;
+
+                return {
+                    ...item,
+                    gstPercentage: itemTaxRate,
+                    gstPercent: itemTaxRate,
+                    amount: itemSubtotal + itemTax
+                };
             });
             salesOrder.subTotal = subTotal;
             salesOrder.subtotal = subTotal;
@@ -162,11 +256,33 @@ export const updateSalesOrder = async (req, res) => {
         if (includeSignature !== undefined) salesOrder.includeSignature = includeSignature;
         if (includeBankDetails !== undefined) salesOrder.includeBankDetails = includeBankDetails;
         if (includeUpiQr !== undefined) salesOrder.includeUpiQr = includeUpiQr;
+        
+        const finalSub = salesOrder.subTotal || 0;
+        const finalTdsTcsType = tdsTcsType !== undefined ? tdsTcsType : salesOrder.tdsTcsType;
+        const finalTdsPct = tdsPercentage !== undefined ? Number(tdsPercentage) : salesOrder.tdsPercentage;
+        const finalTcsPct = tcsPercentage !== undefined ? Number(tcsPercentage) : salesOrder.tcsPercentage;
+
+        let calculatedTdsAmount = 0;
+        let calculatedTcsAmount = 0;
+        if (finalTdsTcsType === 'TDS') {
+            calculatedTdsAmount = finalSub * (finalTdsPct / 100);
+        } else if (finalTdsTcsType === 'TCS') {
+            calculatedTcsAmount = finalSub * (finalTcsPct / 100);
+        }
+
+        salesOrder.tdsPercentage = finalTdsPct;
+        salesOrder.tdsAmount = calculatedTdsAmount;
+        salesOrder.tcsPercentage = finalTcsPct;
+        salesOrder.tcsAmount = calculatedTcsAmount;
+        if (adjustment !== undefined) salesOrder.adjustment = Number(adjustment) || 0;
 
         const disc = salesOrder.discount || 0;
+        const tds = salesOrder.tdsAmount || 0;
+        const tcs = salesOrder.tcsAmount || 0;
+        const adj = salesOrder.adjustment || 0;
         const sub = salesOrder.subTotal || 0;
         const tax = salesOrder.taxTotal || 0;
-        salesOrder.grandTotal = Math.round(sub + tax - disc);
+        salesOrder.grandTotal = Math.round(sub + tax - disc - tds + tcs + adj);
 
         await salesOrder.save();
         res.status(200).json({ success: true, data: salesOrder });

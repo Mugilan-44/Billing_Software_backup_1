@@ -14,7 +14,10 @@ export const calculateInvoice = (input) => {
         shippingCharge = 0,
         taxType = 'GST',
         taxRate = null,
-        isTaxed = true
+        isTaxed = true,
+        tdsTcsType = 'None',
+        tdsPercentage = 0,
+        tcsPercentage = 0
     } = input;
 
     let subtotal = new Decimal(0);
@@ -23,7 +26,7 @@ export const calculateInvoice = (input) => {
     // Determine the tax percentage to apply to each line
     const getTaxPercent = (item) => {
         if (!isTaxed || taxType === 'None') return new Decimal(0);
-        if (taxRate !== null && taxRate !== undefined) return new Decimal(taxRate);
+        if (taxRate !== null && taxRate !== undefined && taxRate !== '') return new Decimal(taxRate);
         return new Decimal(item.gstPercentage || item.gstPercent || 0);
     };
 
@@ -140,8 +143,17 @@ export const calculateInvoice = (input) => {
     // 5. shipping_charge = shipping_amount
     const finalShipping = new Decimal(shippingCharge || 0);
 
-    // 6. grand_total = taxable_value + tax_amount + shipping_charge
-    const grandTotal = invoiceTaxableValue.plus(totalTaxAmount).plus(finalShipping);
+    // 6. TDS / TCS calculation
+    let tdsAmount = new Decimal(0);
+    let tcsAmount = new Decimal(0);
+    if (tdsTcsType === 'TDS') {
+        tdsAmount = roundMoney(invoiceTaxableValue.times(new Decimal(tdsPercentage || 0).div(100)));
+    } else if (tdsTcsType === 'TCS') {
+        tcsAmount = roundMoney(invoiceTaxableValue.times(new Decimal(tcsPercentage || 0).div(100)));
+    }
+
+    // 7. grand_total = taxable_value + tax_amount + shipping_charge - tds_amount + tcs_amount
+    const grandTotal = invoiceTaxableValue.plus(totalTaxAmount).plus(finalShipping).minus(tdsAmount).plus(tcsAmount);
 
     return {
         lineItems: finalizedItems,
@@ -153,6 +165,8 @@ export const calculateInvoice = (input) => {
         sgst: totalSgst,
         igst: totalIgst,
         shippingCharge: finalShipping,
+        tdsAmount: tdsAmount,
+        tcsAmount: tcsAmount,
         grandTotal: grandTotal,
         isSameState: isSameState
     };

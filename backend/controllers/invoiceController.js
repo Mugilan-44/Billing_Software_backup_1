@@ -82,6 +82,8 @@ export const createInvoice = async (req, res) => {
               linkedQuotationId, linkedSalesOrderId,
               invoiceDiscount = 0, placeOfSupply,
               taxType = 'GST', taxRate, isTaxed = true,
+              useProductSpecificTax = true,
+              tdsTcsType = 'None', tdsPercentage = 0, tcsPercentage = 0,
               includeTerms = true, includeSignature = false } = parsed.data;
 
       const customer = await Customer.findById(customerId).session(session);
@@ -108,7 +110,11 @@ export const createInvoice = async (req, res) => {
         customerStateCode,
         taxType,
         taxRate,
-        isTaxed
+        isTaxed,
+        useProductSpecificTax,
+        tdsTcsType,
+        tdsPercentage,
+        tcsPercentage
       });
 
       const invoicePayload = {
@@ -138,6 +144,12 @@ export const createInvoice = async (req, res) => {
         taxType,
         taxRate,
         isTaxed,
+        useProductSpecificTax,
+        tdsTcsType,
+        tdsPercentage: Number(tdsPercentage) || 0,
+        tdsAmount: totals.tdsAmount.toNumber(),
+        tcsPercentage: Number(tcsPercentage) || 0,
+        tcsAmount: totals.tcsAmount.toNumber(),
         includeTerms,
         includeSignature
       };
@@ -561,7 +573,7 @@ export const updateInvoice = async (req, res) => {
     const settings = await CompanySettings.findOne({ companyId: req.user.companyId || null }).lean();
 
     const { lineItems, date, dueDate, notes, paymentTerms, status, transportDetails, termsAndConditions,
-            taxType = 'GST', taxRate, isTaxed = true, includeTerms, includeSignature } = req.body;
+            taxType = 'GST', taxRate, isTaxed = true, useProductSpecificTax, tdsTcsType, tdsPercentage, tcsPercentage, includeTerms, includeSignature } = req.body;
     const actualLineItems = lineItems || req.body.items || []; // fallback for legacy frontend
 
     // Reverse old stock from embedded line items
@@ -570,15 +582,6 @@ export const updateInvoice = async (req, res) => {
         if (item.itemId) {
           await Item.findByIdAndUpdate(item.itemId,
             { $inc: { availableStock: item.quantity, stockQuantity: item.quantity } }, { session });
-        }
-      }
-    } else {
-      // Legacy fallback
-      const oldItems = await InvoiceItem.find({ invoiceId: invoice._id }).lean();
-      for (const oldItem of oldItems) {
-        if (oldItem.itemId) {
-          await Item.findByIdAndUpdate(oldItem.itemId,
-            { $inc: { availableStock: oldItem.quantity, stockQuantity: oldItem.quantity } }, { session });
         }
       }
     }
@@ -598,7 +601,11 @@ export const updateInvoice = async (req, res) => {
       customerStateCode,
       taxType,
       taxRate,
-      isTaxed
+      isTaxed,
+      useProductSpecificTax: useProductSpecificTax !== undefined ? useProductSpecificTax : invoice.useProductSpecificTax,
+      tdsTcsType: tdsTcsType !== undefined ? tdsTcsType : invoice.tdsTcsType,
+      tdsPercentage: tdsPercentage !== undefined ? Number(tdsPercentage) : invoice.tdsPercentage,
+      tcsPercentage: tcsPercentage !== undefined ? Number(tcsPercentage) : invoice.tcsPercentage
     });
 
     // Apply new stock deduction
@@ -634,6 +641,12 @@ export const updateInvoice = async (req, res) => {
     invoice.taxType       = taxType;
     invoice.taxRate       = taxRate;
     invoice.isTaxed       = isTaxed;
+    if (useProductSpecificTax !== undefined) invoice.useProductSpecificTax = useProductSpecificTax;
+    if (tdsTcsType !== undefined) invoice.tdsTcsType = tdsTcsType;
+    if (tdsPercentage !== undefined) invoice.tdsPercentage = Number(tdsPercentage) || 0;
+    if (tcsPercentage !== undefined) invoice.tcsPercentage = Number(tcsPercentage) || 0;
+    invoice.tdsAmount     = totals.tdsAmount.toNumber();
+    invoice.tcsAmount     = totals.tcsAmount.toNumber();
     
     if (date) invoice.date = new Date(date);
     if (dueDate) invoice.dueDate = new Date(dueDate);

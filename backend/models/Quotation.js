@@ -60,8 +60,15 @@ const quotationSchema = new mongoose.Schema({
   projectName:        String,
   subject:            String,
   adjustment:         { type: Number, default: 0 },
+  isTaxed:            { type: Boolean, default: true },
+  taxType:            { type: String, enum: ['GST', 'VAT', 'Sales Tax', 'None'], default: 'GST' },
+  taxRate:            { type: Number, default: null },
+  useProductSpecificTax: { type: Boolean, default: true },
+  tdsTcsType:         { type: String, enum: ['None', 'TDS', 'TCS'], default: 'None' },
   tdsPercentage:      { type: Number, default: 0 },
   tdsAmount:          { type: Number, default: 0 },
+  tcsPercentage:      { type: Number, default: 0 },
+  tcsAmount:          { type: Number, default: 0 },
 
   status: {
     type: String,

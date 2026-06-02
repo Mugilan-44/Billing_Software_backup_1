@@ -87,6 +87,9 @@ const InvoiceForm = () => {
     const [includeSignature, setIncludeSignature] = useState(false);
     const [includeBankDetails, setIncludeBankDetails] = useState(true);
     const [includeUpiQr, setIncludeUpiQr] = useState(true);
+    const [tdsPercentage, setTdsPercentage] = useState(0);
+    const [tcsPercentage, setTcsPercentage] = useState(0);
+    const [tdsTcsType, setTdsTcsType] = useState('None'); // 'None', 'TDS', 'TCS'
 
     const [items, setItems] = useState([
         { itemId: '', description: '', quantity: 1, rate: 0, discountType: '%', discount: 0, taxGst: 0 }
@@ -234,6 +237,9 @@ const InvoiceForm = () => {
                 setUseProductSpecificTax(false);
                 setTaxRate(data.taxRate);
             }
+            setTdsTcsType(data.tdsTcsType || 'None');
+            setTdsPercentage(data.tdsPercentage || 0);
+            setTcsPercentage(data.tcsPercentage || 0);
             if (data.lineItems?.length > 0 || data.items?.length > 0) {
                 const itemsList = data.lineItems || data.items || [];
                 setItems(itemsList.map(i => ({
@@ -334,9 +340,17 @@ const InvoiceForm = () => {
             taxTotal += itemAmount * (currentTaxRate / 100);
         });
 
-        const grandTotal = subTotal + taxTotal;
+        let tdsAmount = 0;
+        let tcsAmount = 0;
+        if (tdsTcsType === 'TDS') {
+            tdsAmount = subTotal * (tdsPercentage / 100);
+        } else if (tdsTcsType === 'TCS') {
+            tcsAmount = subTotal * (tcsPercentage / 100);
+        }
 
-        return { subTotal, taxTotal, grandTotal };
+        const grandTotal = subTotal + taxTotal - tdsAmount + tcsAmount;
+
+        return { subTotal, taxTotal, tdsAmount, tcsAmount, grandTotal };
     };
 
     const totals = calculateTotals();
@@ -389,6 +403,9 @@ const InvoiceForm = () => {
             taxType: isTaxed ? taxType : 'None',
             taxRate: isTaxed ? (useProductSpecificTax ? null : Number(taxRate)) : 0,
             isTaxed,
+            tdsTcsType,
+            tdsPercentage: tdsTcsType === 'TDS' ? Number(tdsPercentage) : 0,
+            tcsPercentage: tdsTcsType === 'TCS' ? Number(tcsPercentage) : 0,
             billingAddress,
             shippingAddress,
             includeTerms,
@@ -981,6 +998,88 @@ const InvoiceForm = () => {
                                     <span className="font-medium text-gray-900">₹{totals.taxTotal.toFixed(2)}</span>
                                 </div>
                             )}
+
+                            <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            id="tdsTcsNone"
+                                            name="tdsTcsType"
+                                            checked={tdsTcsType === 'None'}
+                                            onChange={() => {
+                                                setTdsTcsType('None');
+                                                setTdsPercentage(0);
+                                                setTcsPercentage(0);
+                                            }}
+                                            className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                        />
+                                        <label htmlFor="tdsTcsNone" className="text-gray-600 font-medium">None</label>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            id="tds"
+                                            name="tdsTcsType"
+                                            checked={tdsTcsType === 'TDS'}
+                                            onChange={() => {
+                                                setTdsTcsType('TDS');
+                                                setTdsPercentage(2);
+                                                setTcsPercentage(0);
+                                            }}
+                                            className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                        />
+                                        <label htmlFor="tds" className="text-gray-600 font-medium">TDS</label>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            id="tcs"
+                                            name="tdsTcsType"
+                                            checked={tdsTcsType === 'TCS'}
+                                            onChange={() => {
+                                                setTdsTcsType('TCS');
+                                                setTcsPercentage(1);
+                                                setTdsPercentage(0);
+                                            }}
+                                            className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                        />
+                                        <label htmlFor="tcs" className="text-gray-600 font-medium whitespace-nowrap">TCS</label>
+                                    </div>
+                                    {tdsTcsType !== 'None' && (
+                                        <select
+                                            className="border-slate-300 rounded text-[10px] py-0.5 px-1.5 w-18 shadow-sm text-slate-500 bg-white"
+                                            value={tdsTcsType === 'TDS' ? tdsPercentage : tcsPercentage}
+                                            onChange={(e) => {
+                                                const val = Number(e.target.value);
+                                                if (tdsTcsType === 'TDS') {
+                                                    setTdsPercentage(val);
+                                                    setTcsPercentage(0);
+                                                } else {
+                                                    setTcsPercentage(val);
+                                                    setTdsPercentage(0);
+                                                }
+                                            }}
+                                        >
+                                            <option value={0}>0%</option>
+                                            <option value={1}>1%</option>
+                                            <option value={2}>2%</option>
+                                            <option value={5}>5%</option>
+                                            <option value={10}>10%</option>
+                                            <option value={18}>18%</option>
+                                        </select>
+                                    )}
+                                </div>
+                                {tdsTcsType === 'TDS' && (
+                                    <span className="text-red-500 font-medium">- ₹{totals.tdsAmount.toFixed(2)}</span>
+                                )}
+                                {tdsTcsType === 'TCS' && (
+                                    <span className="text-green-600 font-medium">+ ₹{totals.tcsAmount.toFixed(2)}</span>
+                                )}
+                                {tdsTcsType === 'None' && (
+                                    <span className="text-slate-400 font-medium">₹0.00</span>
+                                )}
+                            </div>
                         </div>
                         <div className="flex items-center justify-between font-bold text-slate-900 text-lg border-t border-gray-200 pt-3">
                             <span>Grand Total</span>

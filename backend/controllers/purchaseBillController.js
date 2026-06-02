@@ -14,6 +14,7 @@ import { findDocument } from '../utils/tenant.utils.js';
 import AuditLog from '../models/AuditLog.js';
 import { generatePurchaseBillPDF } from '../utils/pdfGenerator.js';
 import { uploadPdfToCloudinary, sendSmtpEmail } from '../utils/emailService.js';
+import { calculateInvoice } from '../utils/calculateInvoice.js';
 
 // @desc    Create a purchase bill (transactional)
 // @route   POST /api/purchase-bills
@@ -28,22 +29,35 @@ export const createPurchaseBill = async (req, res) => {
 
     try {
       const { vendorId, lineItems, date, dueDate, notes,
+              taxType = 'GST', taxRate, isTaxed = true, useProductSpecificTax = true,
+              tdsTcsType = 'None', tdsPercentage = 0, tcsPercentage = 0, discount = 0,
               includeTerms = true, includeSignature = false, includeBankDetails = true, includeUpiQr = true } = parsed.data;
 
       const vendor = await findDocument(Vendor, vendorId, req.user, session);
       if (!vendor) throw new Error('Vendor not found');
 
-      let subtotal = 0, taxAmount = 0;
-      const computedItems = lineItems.map(item => {
-        const taxable = Math.round(item.quantity * item.rate * 100) / 100;
-        const tax     = Math.round(taxable * ((item.gstPercent || 0) / 100) * 100) / 100;
-        subtotal  += taxable;
-        taxAmount += tax;
-        return { ...item, amount: Math.round((taxable + tax) * 100) / 100 };
+      const companySettings = await CompanySettings.findOne({ companyId: req.user.companyId || null }).session(session);
+      const companyStateCode = companySettings?.stateCode || (companySettings?.gstin ? companySettings.gstin.substring(0, 2) : null);
+      const vendorStateCode = vendor?.stateCode || (vendor?.gstNumber ? vendor.gstNumber.substring(0, 2) : null);
+
+      const totals = calculateInvoice({
+        lineItems,
+        discountPercent: 0,
+        discountFixed: Number(discount) || 0,
+        companyStateCode,
+        customerStateCode: vendorStateCode,
+        taxType,
+        taxRate,
+        isTaxed,
+        useProductSpecificTax,
+        tdsTcsType,
+        tdsPercentage,
+        tcsPercentage
       });
-      subtotal   = Math.round(subtotal * 100) / 100;
-      taxAmount  = Math.round(taxAmount * 100) / 100;
-      const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+
+      const subtotal = totals.subtotal.toNumber();
+      const taxAmount = totals.taxAmount.toNumber();
+      const grandTotal = totals.grandTotal.toNumber();
 
       const billNumber = await getNextSequenceValue('purchaseBill', 'BILL');
 
@@ -54,12 +68,26 @@ export const createPurchaseBill = async (req, res) => {
         date:      new Date(date),
         billDate:  new Date(date),
         dueDate:   dueDate ? new Date(dueDate) : undefined,
-        lineItems: computedItems,
+        lineItems: totals.lineItems,
+        items:     totals.lineItems,
         subtotal, subTotal: subtotal,
         taxAmount, taxTotal: taxAmount,
+        cgst:      totals.cgst.toNumber(),
+        sgst:      totals.sgst.toNumber(),
+        igst:      totals.igst.toNumber(),
+        discount:  Number(discount) || 0,
         grandTotal,
         balanceDue: grandTotal,
         notes,
+        isTaxed,
+        taxType,
+        taxRate,
+        useProductSpecificTax,
+        tdsTcsType,
+        tdsPercentage: Number(tdsPercentage) || 0,
+        tdsAmount: totals.tdsAmount.toNumber(),
+        tcsPercentage: Number(tcsPercentage) || 0,
+        tcsAmount: totals.tcsAmount.toNumber(),
         includeTerms,
         includeSignature,
         includeBankDetails,
@@ -394,6 +422,8 @@ export const updatePurchaseBill = async (req, res) => {
     }
 
     const { vendorId, lineItems, items, discount = 0, notes, date, dueDate,
+            taxType = 'GST', taxRate, isTaxed = true, useProductSpecificTax = true,
+            tdsTcsType = 'None', tdsPercentage = 0, tcsPercentage = 0,
             includeTerms, includeSignature, includeBankDetails, includeUpiQr } = req.body;
 
     const round = (v) => Math.round(v * 100) / 100;
@@ -436,41 +466,35 @@ export const updatePurchaseBill = async (req, res) => {
     }
 
     // ── 3. Calculate New Totals & items ──────────────────────────────
-    let computedItems = [];
-    let subtotal = 0;
-    let taxAmount = 0;
-
     const sourceItems = lineItems || items || [];
-    for (const item of sourceItems) {
-      const dbItem = await Item.findById(item.itemId).session(session);
-      if (!dbItem) throw new Error(`Item not found: ${item.itemId}`);
+    const companySettings = await CompanySettings.findOne({ companyId: req.user.companyId || null }).session(session);
+    const companyStateCode = companySettings?.stateCode || (companySettings?.gstin ? companySettings.gstin.substring(0, 2) : null);
+    
+    const activeVendorId = vendorId || bill.vendorId;
+    const activeVendor = await findDocument(Vendor, activeVendorId, req.user, session);
+    const vendorStateCode = activeVendor?.stateCode || (activeVendor?.gstNumber ? activeVendor.gstNumber.substring(0, 2) : null);
 
-      const quantity = Number(item.quantity) || 0;
-      const rate = Number(item.rate) || 0;
-      const gstPercent = Number(item.gstPercent || item.gstPercentage || dbItem.gstPercentage || 0);
+    const totals = calculateInvoice({
+      lineItems: sourceItems,
+      discountPercent: 0,
+      discountFixed: Number(discount) || 0,
+      companyStateCode,
+      customerStateCode: vendorStateCode,
+      taxType,
+      taxRate,
+      isTaxed,
+      useProductSpecificTax,
+      tdsTcsType,
+      tdsPercentage: Number(tdsPercentage) || 0,
+      tcsPercentage: Number(tcsPercentage) || 0
+    });
 
-      const taxable = Math.round(quantity * rate * 100) / 100;
-      const tax = Math.round(taxable * (gstPercent / 100) * 100) / 100;
-      subtotal += taxable;
-      taxAmount += tax;
-
-      computedItems.push({
-        itemId: dbItem._id,
-        name: dbItem.name,
-        quantity,
-        rate,
-        gstPercent,
-        gstPercentage: gstPercent,
-        amount: Math.round((taxable + tax) * 100) / 100
-      });
-    }
-
-    subtotal = Math.round(subtotal * 100) / 100;
-    taxAmount = Math.round(taxAmount * 100) / 100;
-    const newGrandTotal = Math.round((subtotal + taxAmount - Number(discount)) * 100) / 100;
+    const subtotal = totals.subtotal.toNumber();
+    const taxAmount = totals.taxAmount.toNumber();
+    const newGrandTotal = totals.grandTotal.toNumber();
 
     // ── 4. Apply New Stock ───────────────────────────────────────────
-    for (const item of computedItems) {
+    for (const item of totals.lineItems) {
       const dbItem = await Item.findById(item.itemId).session(session);
       if (dbItem && dbItem.type !== 'Service') {
         const prevStock = dbItem.availableStock ?? dbItem.stockQuantity ?? 0;
@@ -501,15 +525,29 @@ export const updatePurchaseBill = async (req, res) => {
       bill.billDate = new Date(date);
     }
     if (dueDate) bill.dueDate = new Date(dueDate);
-    bill.lineItems = computedItems;
-    bill.items = computedItems;
+    bill.lineItems = totals.lineItems;
+    bill.items = totals.lineItems;
     bill.subtotal = subtotal;
     bill.subTotal = subtotal;
     bill.taxAmount = taxAmount;
     bill.taxTotal = taxAmount;
+    bill.cgst = totals.cgst.toNumber();
+    bill.sgst = totals.sgst.toNumber();
+    bill.igst = totals.igst.toNumber();
     bill.discount = Number(discount) || 0;
     bill.grandTotal = newGrandTotal;
     bill.balanceDue = Math.max(0, newGrandTotal - (bill.amountPaid || 0));
+    
+    bill.isTaxed = isTaxed;
+    bill.taxType = taxType;
+    bill.taxRate = taxRate;
+    bill.useProductSpecificTax = useProductSpecificTax;
+    bill.tdsTcsType = tdsTcsType;
+    bill.tdsPercentage = Number(tdsPercentage) || 0;
+    bill.tdsAmount = totals.tdsAmount.toNumber();
+    bill.tcsPercentage = Number(tcsPercentage) || 0;
+    bill.tcsAmount = totals.tcsAmount.toNumber();
+
     if (notes !== undefined) bill.notes = notes;
     if (includeTerms !== undefined) bill.includeTerms = includeTerms;
     if (includeSignature !== undefined) bill.includeSignature = includeSignature;

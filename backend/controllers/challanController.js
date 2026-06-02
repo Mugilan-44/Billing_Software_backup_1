@@ -27,7 +27,12 @@ const applyChallanCalculations = async (req) => {
         companyStateCode,
         customerStateCode,
         taxType: req.body.taxType || 'GST',
-        isTaxed: req.body.isTaxed !== false
+        taxRate: req.body.taxRate !== undefined ? req.body.taxRate : null,
+        isTaxed: req.body.isTaxed !== false,
+        useProductSpecificTax: req.body.useProductSpecificTax !== false,
+        tdsTcsType: req.body.tdsTcsType || 'None',
+        tdsPercentage: req.body.tdsPercentage || 0,
+        tcsPercentage: req.body.tcsPercentage || 0
     });
     
     req.body.items = calculated.lineItems;
@@ -37,6 +42,15 @@ const applyChallanCalculations = async (req) => {
     req.body.cgst = calculated.cgst.toNumber();
     req.body.sgst = calculated.sgst.toNumber();
     req.body.igst = calculated.igst.toNumber();
+    req.body.isTaxed = req.body.isTaxed !== false;
+    req.body.taxType = req.body.taxType || 'GST';
+    req.body.taxRate = req.body.taxRate !== undefined ? req.body.taxRate : null;
+    req.body.useProductSpecificTax = req.body.useProductSpecificTax !== false;
+    req.body.tdsTcsType = req.body.tdsTcsType || 'None';
+    req.body.tdsPercentage = req.body.tdsPercentage || 0;
+    req.body.tdsAmount = calculated.tdsAmount.toNumber();
+    req.body.tcsPercentage = req.body.tcsPercentage || 0;
+    req.body.tcsAmount = calculated.tcsAmount.toNumber();
     req.body.grandTotal = calculated.grandTotal.toNumber();
 };
 
@@ -191,6 +205,15 @@ export const updateChallan = async (req, res) => {
         challan.cgst = req.body.cgst;
         challan.sgst = req.body.sgst;
         challan.igst = req.body.igst;
+        challan.isTaxed = req.body.isTaxed;
+        challan.taxType = req.body.taxType;
+        challan.taxRate = req.body.taxRate;
+        challan.useProductSpecificTax = req.body.useProductSpecificTax;
+        challan.tdsTcsType = req.body.tdsTcsType;
+        challan.tdsPercentage = req.body.tdsPercentage;
+        challan.tdsAmount = req.body.tdsAmount;
+        challan.tcsPercentage = req.body.tcsPercentage;
+        challan.tcsAmount = req.body.tcsAmount;
         challan.grandTotal = req.body.grandTotal;
 
         await challan.save();

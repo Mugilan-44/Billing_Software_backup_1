@@ -45,6 +45,15 @@ const salesOrderSchema = new mongoose.Schema({
   subtotal:   { type: Number },
   subTotal:   { type: Number },  // legacy alias
   taxTotal:   { type: Number },
+  isTaxed:            { type: Boolean, default: true },
+  taxType:            { type: String, enum: ['GST', 'VAT', 'Sales Tax', 'None'], default: 'GST' },
+  taxRate:            { type: Number, default: null },
+  useProductSpecificTax: { type: Boolean, default: true },
+  tdsTcsType:         { type: String, enum: ['None', 'TDS', 'TCS'], default: 'None' },
+  tdsPercentage:      { type: Number, default: 0 },
+  tdsAmount:          { type: Number, default: 0 },
+  tcsPercentage:      { type: Number, default: 0 },
+  tcsAmount:          { type: Number, default: 0 },
   grandTotal: { type: Number },
 
   date: { type: Date, default: Date.now },

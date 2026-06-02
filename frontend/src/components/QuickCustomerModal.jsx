@@ -85,136 +85,150 @@ export default function QuickCustomerModal({ isOpen, onClose, onSuccess }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 animate-in zoom-in-95 duration-200 text-slate-800 dark:text-slate-100">
-                <button onClick={onClose} className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                    <X size={18} />
-                </button>
-                
-                <h3 className="text-lg font-bold tracking-tight mb-2">Create New Customer</h3>
-                <p className="text-xs text-slate-400 mb-6">Quickly add a customer to use in this transaction.</p>
+        <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
+            {/* Backdrop overlay */}
+            <div 
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity duration-300 ease-in-out" 
+                onClick={onClose} 
+            />
+            
+            {/* Slide-over panel */}
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-full z-50 transform transition-transform duration-300 ease-in-out animate-in slide-in-from-right text-slate-800 dark:text-slate-100">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">Create New Customer</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Quickly add a customer to this transaction.</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 transition-colors">
+                        <X size={18} />
+                    </button>
+                </div>
 
                 {error && (
-                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium border border-red-100 dark:border-red-900/30">
+                    <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-lg text-xs font-semibold border border-red-100 dark:border-red-900/30">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Customer Type</label>
-                        <div className="flex gap-4">
-                            {['Business', 'Individual'].map(t => (
-                                <label key={t} className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="modalCustomerType"
-                                        value={t}
-                                        checked={customerType === t}
-                                        onChange={() => setCustomerType(t)}
-                                        className="accent-blue-600 w-4 h-4"
-                                    />
-                                    <span className="text-sm">{t}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {customerType === 'Business' ? (
+                {/* Form Body */}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Company Name *</label>
-                            <input
-                                type="text"
-                                className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                value={companyName}
-                                onChange={e => setCompanyName(e.target.value)}
-                                placeholder="e.g. Acme Corp"
-                                required
-                            />
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Customer Type</label>
+                            <div className="flex gap-4">
+                                {['Business', 'Individual'].map(t => (
+                                    <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            type="radio"
+                                            name="modalCustomerType"
+                                            value={t}
+                                            checked={customerType === t}
+                                            onChange={() => setCustomerType(t)}
+                                            className="accent-blue-600 w-4 h-4"
+                                        />
+                                        <span className="text-sm font-medium">{t}</span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-4">
+
+                        {customerType === 'Business' ? (
                             <div>
-                                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">First Name *</label>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Company Name *</label>
                                 <input
                                     type="text"
-                                    className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                    value={firstName}
-                                    onChange={e => setFirstName(e.target.value)}
-                                    placeholder="Jane"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                    value={companyName}
+                                    onChange={e => setCompanyName(e.target.value)}
+                                    placeholder="e.g. Acme Corp"
                                     required
                                 />
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Last Name</label>
-                                <input
-                                    type="text"
-                                    className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                    value={lastName}
-                                    onChange={e => setLastName(e.target.value)}
-                                    placeholder="Doe"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Email Address</label>
-                            <input
-                                type="email"
-                                className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                placeholder="name@company.com"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Mobile Number</label>
-                            <input
-                                type="tel"
-                                className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                value={mobile}
-                                onChange={e => setMobile(e.target.value)}
-                                placeholder="10-digit mobile"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {customerType === 'Business' && (
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">GSTIN</label>
-                                <input
-                                    type="text"
-                                    className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm uppercase"
-                                    value={gstNumber}
-                                    onChange={e => setGstNumber(e.target.value)}
-                                    placeholder="22AAAAA0000A1Z5"
-                                    maxLength={15}
-                                />
+                        ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">First Name *</label>
+                                    <input
+                                        type="text"
+                                        className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                        value={firstName}
+                                        onChange={e => setFirstName(e.target.value)}
+                                        placeholder="Jane"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Last Name</label>
+                                    <input
+                                        type="text"
+                                        className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                        value={lastName}
+                                        onChange={e => setLastName(e.target.value)}
+                                        placeholder="Doe"
+                                    />
+                                </div>
                             </div>
                         )}
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">State</label>
-                            <select
-                                className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
-                                value={state}
-                                onChange={e => setState(e.target.value)}
-                            >
-                                <option value="">Select State</option>
-                                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Email Address</label>
+                                <input
+                                    type="email"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    placeholder="name@company.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Mobile Number</label>
+                                <input
+                                    type="tel"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                    value={mobile}
+                                    onChange={e => setMobile(e.target.value)}
+                                    placeholder="10-digit mobile"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {customerType === 'Business' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">GSTIN</label>
+                                    <input
+                                        type="text"
+                                        className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none uppercase"
+                                        value={gstNumber}
+                                        onChange={e => setGstNumber(e.target.value)}
+                                        placeholder="22AAAAA0000A1Z5"
+                                        maxLength={15}
+                                    />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">State</label>
+                                <select
+                                    className="block w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                    value={state}
+                                    onChange={e => setState(e.target.value)}
+                                >
+                                    <option value="">Select State</option>
+                                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <button type="button" onClick={onClose} className="btn-secondary">
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 shrink-0">
+                        <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                             Cancel
                         </button>
-                        <button type="submit" disabled={loading} className="btn-primary px-6 flex items-center gap-2">
-                            <Save size={16} />
+                        <button type="submit" disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors">
+                            <Save size={14} />
                             {loading ? 'Saving...' : 'Save Customer'}
                         </button>
                     </div>
