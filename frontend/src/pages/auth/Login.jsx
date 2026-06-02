@@ -1,7 +1,41 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { Eye, EyeOff, LogIn, AlertCircle, TrendingUp, Clock, ShieldCheck, Layers, FileText, CheckCircle2 } from 'lucide-react';
+
+const AnimatedCounter = ({ targetValue, duration = 1200, prefix = '₹', suffix = '.00' }) => {
+    const [displayVal, setDisplayVal] = useState(0);
+
+    useEffect(() => {
+        let startTimestamp = null;
+        let animationFrameId;
+
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            setDisplayVal(Math.floor(easeProgress * targetValue));
+            if (progress < 1) {
+                animationFrameId = window.requestAnimationFrame(step);
+            }
+        };
+        animationFrameId = window.requestAnimationFrame(step);
+
+        return () => {
+            if (animationFrameId) {
+                window.cancelAnimationFrame(animationFrameId);
+            }
+        };
+    }, [targetValue, duration]);
+
+    return (
+        <span>
+            {prefix}
+            {displayVal.toLocaleString('en-IN')}
+            {suffix}
+        </span>
+    );
+};
 
 const Login = () => {
     const { loginUser } = useContext(AuthContext);
@@ -39,6 +73,25 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-white flex font-sans text-slate-800">
+            <style>{`
+                @keyframes lineDraw {
+                    from { stroke-dashoffset: 200; }
+                    to { stroke-dashoffset: 0; }
+                }
+                @keyframes growY {
+                    from { transform: scaleY(0); }
+                    to { transform: scaleY(1); }
+                }
+                .line-draw {
+                    stroke-dasharray: 200;
+                    stroke-dashoffset: 200;
+                    animation: lineDraw 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+                }
+                .animate-grow-y {
+                    transform-origin: bottom;
+                    animation: growY 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                }
+            `}</style>
             {/* Left Panel: Clean Sign-In Form Box */}
             <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 md:p-12 lg:p-16 bg-white shrink-0">
                 <div className="flex items-center gap-3">
@@ -168,7 +221,9 @@ const Login = () => {
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-2xl font-black text-slate-900">₹4,82,900.00</div>
+                                <div className="text-2xl font-black text-slate-900">
+                                    <AnimatedCounter targetValue={482900} />
+                                </div>
                                 <span className="inline-flex items-center text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
                                     +18.4% vs last month
                                 </span>
@@ -184,11 +239,65 @@ const Login = () => {
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-2xl font-black text-slate-900">₹34,150.00</div>
+                                <div className="text-2xl font-black text-slate-900">
+                                    <AnimatedCounter targetValue={34150} />
+                                </div>
                                 <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
                                     3 accounts overdue
                                 </span>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Revenue Growth Trend Card */}
+                    <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-all duration-300">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Revenue Growth Trend</span>
+                                <h3 className="text-base font-bold text-slate-800">Weekly Breakdown</h3>
+                            </div>
+                            <span className="inline-flex items-center text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                                Live Analytics
+                            </span>
+                        </div>
+                        
+                        <div className="relative h-24 w-full overflow-hidden pt-2">
+                            <svg className="w-full h-full text-blue-500" viewBox="0 0 100 30" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="rgb(59, 130, 246)" stopOpacity="0.15" />
+                                        <stop offset="100%" stopColor="rgb(59, 130, 246)" stopOpacity="0.0" />
+                                    </linearGradient>
+                                </defs>
+                                {/* Grid lines */}
+                                <line x1="0" y1="10" x2="100" y2="10" stroke="#f1f5f9" strokeWidth="0.5" strokeDasharray="2,2" />
+                                <line x1="0" y1="20" x2="100" y2="20" stroke="#f1f5f9" strokeWidth="0.5" strokeDasharray="2,2" />
+                                
+                                {/* Area path */}
+                                <path
+                                    d="M 0 30 Q 15 22 30 25 T 60 12 T 90 6 T 100 4 L 100 30 Z"
+                                    fill="url(#chart-grad)"
+                                    className="animate-grow-y"
+                                />
+                                {/* Line path */}
+                                <path
+                                    d="M 0 30 Q 15 22 30 25 T 60 12 T 90 6 T 100 4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    className="line-draw"
+                                />
+                                
+                                {/* Pulsing endpoint */}
+                                <circle cx="100" cy="4" r="1.5" fill="rgb(59, 130, 246)" className="animate-pulse" />
+                            </svg>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 px-1 pt-1 uppercase tracking-wider">
+                            <span>Week 1</span>
+                            <span>Week 2</span>
+                            <span>Week 3</span>
+                            <span>Week 4</span>
                         </div>
                     </div>
 
