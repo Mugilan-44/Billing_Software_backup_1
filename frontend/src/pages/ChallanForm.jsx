@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Truck, Plus, Trash2, ArrowLeft, Save, Info, User, Navigation } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickItemModal from '../components/QuickItemModal';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -24,6 +26,22 @@ const ChallanForm = () => {
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setCustomerId(newCustomer._id);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
 
     // Form State
     const [customerId, setCustomerId] = useState('');
@@ -227,7 +245,7 @@ const ChallanForm = () => {
                                 if (cust) setCustomerId(cust._id);
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
                         {customerId && (
@@ -353,7 +371,10 @@ const ChallanForm = () => {
                                                     if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                 }}
                                                 placeholder="Select Item"
-                                                onAddNew={() => navigate('/items/new')}
+                                                onAddNew={() => {
+                                                    setActiveItemRowIdx(idx);
+                                                    setShowItemModal(true);
+                                                }}
                                                 addNewLabel="New Item"
                                             />
                                         </td>
@@ -504,6 +525,18 @@ const ChallanForm = () => {
                     </div>
                 </div>
             </form>
+
+            <QuickCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSuccess={handleCustomerCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
         </div>
     );
 };

@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickItemModal from '../components/QuickItemModal';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -25,6 +27,22 @@ const QuotationForm = () => {
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setCustomerId(newCustomer._id);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
 
     const [customerId, setCustomerId] = useState('');
     const [quoteNumberPlaceholder, setQuoteNumberPlaceholder] = useState('QT-00000X');
@@ -247,7 +265,7 @@ const QuotationForm = () => {
                                 if (cust) setCustomerId(cust._id);
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
                     </InputRow>
@@ -329,7 +347,10 @@ const QuotationForm = () => {
                                                     if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                 }}
                                                 placeholder="Select an item"
-                                                onAddNew={() => navigate('/items/new')}
+                                                onAddNew={() => {
+                                                    setActiveItemRowIdx(idx);
+                                                    setShowItemModal(true);
+                                                }}
                                                 addNewLabel="New Item"
                                             />
                                             {item.name && (
@@ -404,7 +425,7 @@ const QuotationForm = () => {
                 </div>
 
                 {/* Bottom Section (Notes & Totals) */}
-                <div className="grid grid-cols-12 gap-8 pt-4">
+                <div className="grid grid-cols-12 gap-8 pt-4 mx-8">
 
                     {/* Notes & Terms */}
                     <div className="col-span-6 space-y-6">
@@ -510,7 +531,7 @@ const QuotationForm = () => {
                 </div>
 
                 {/* Terms and Upload Area */}
-                <div className="grid grid-cols-12 gap-8 py-4 border-t border-gray-100 mt-8 pt-8">
+                <div className="grid grid-cols-12 gap-8 py-4 border-t border-gray-100 mt-8 pt-8 mx-8">
                     <div className="col-span-6 space-y-1">
                         <label className="block text-sm text-gray-700 mb-1">Terms & Conditions</label>
                         <div className="relative">
@@ -577,6 +598,18 @@ const QuotationForm = () => {
                     </div>
                 </div>
             </form>
+
+            <QuickCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSuccess={handleCustomerCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
         </div>
     );
 };

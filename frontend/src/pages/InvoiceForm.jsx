@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Settings, Search, Plus, Trash2, Save, Info } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickItemModal from '../components/QuickItemModal';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -25,6 +27,50 @@ const InvoiceForm = () => {
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setCustomerId(newCustomer._id);
+        
+        let billingStr = '';
+        if (newCustomer.billingAddress) {
+            billingStr = [
+                newCustomer.billingAddress.attention,
+                newCustomer.billingAddress.street1,
+                newCustomer.billingAddress.street2,
+                newCustomer.billingAddress.city,
+                newCustomer.billingAddress.state,
+                newCustomer.billingAddress.zipCode,
+                newCustomer.billingAddress.country
+            ].filter(Boolean).join('\n');
+        }
+        setBillingAddress(billingStr);
+
+        let shippingStr = '';
+        if (newCustomer.shippingAddress) {
+            shippingStr = [
+                newCustomer.shippingAddress.attention,
+                newCustomer.shippingAddress.street1,
+                newCustomer.shippingAddress.street2,
+                newCustomer.shippingAddress.city,
+                newCustomer.shippingAddress.state,
+                newCustomer.shippingAddress.zipCode,
+                newCustomer.shippingAddress.country
+            ].filter(Boolean).join('\n');
+        }
+        setShippingAddress(shippingStr);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
 
     // Form State
     const [customerId, setCustomerId] = useState('');
@@ -518,7 +564,7 @@ const InvoiceForm = () => {
                                 }
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
                     </InputRow>
@@ -751,7 +797,10 @@ const InvoiceForm = () => {
                                                         if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                     }}
                                                     placeholder="Select Item"
-                                                    onAddNew={() => navigate('/items/new')}
+                                                    onAddNew={() => {
+                                                        setActiveItemRowIdx(idx);
+                                                        setShowItemModal(true);
+                                                    }}
                                                     addNewLabel="New Item"
                                                 />
                                                 <input
@@ -856,7 +905,7 @@ const InvoiceForm = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-12 gap-8 mt-10">
+                <div className="grid grid-cols-12 gap-8 mt-10 mx-8 pb-8">
                     <div className="col-span-12 lg:col-span-7 space-y-6">
                         <div>
                             <label className="block text-sm text-gray-700 font-medium mb-1">Customer Notes</label>
@@ -1053,6 +1102,18 @@ const InvoiceForm = () => {
                     </div>
                 </div>
             )}
+
+            <QuickCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSuccess={handleCustomerCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
         </div>
     );
 };

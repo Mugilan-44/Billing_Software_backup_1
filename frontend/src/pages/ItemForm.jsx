@@ -78,6 +78,10 @@ const ItemForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.name.trim()) return setError('Item Name is required');
+        if (!form.sellingPrice || Number(form.sellingPrice) <= 0) {
+            setError('Selling Price (Item Rate) is required and must be greater than 0');
+            return;
+        }
 
         setLoading(true);
         setError('');

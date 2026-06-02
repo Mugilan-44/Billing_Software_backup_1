@@ -32,7 +32,7 @@ const Invoices = () => {
 
     const handleShareWhatsApp = (invoice) => {
         const link = `${window.location.origin}/public/invoice/${invoice._id}`;
-        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${invoice.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
+        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${(invoice.grandTotal || 0).toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
@@ -138,9 +138,9 @@ const Invoices = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            ₹{inv.grandTotal.toFixed(2)}
+                                            ₹{(inv.grandTotal || 0).toFixed(2)}
                                             {inv.status !== 'Paid' && (
-                                                <div className="text-xs text-gray-500 font-normal mt-1">Bal: ₹{(inv.grandTotal - inv.amountPaid).toFixed(2)}</div>
+                                                <div className="text-xs text-gray-500 font-normal mt-1">Bal: ₹{((inv.grandTotal || 0) - (inv.amountPaid || 0)).toFixed(2)}</div>
                                             )}
                                         </td>
                                     </tr>

@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, ShoppingCart, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickItemModal from '../components/QuickItemModal';
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -41,6 +43,22 @@ const SalesOrderForm = () => {
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setCustomerId(newCustomer._id);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
 
     const [customerId, setCustomerId] = useState('');
     const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
@@ -242,7 +260,7 @@ const SalesOrderForm = () => {
                                 if (cust) setCustomerId(cust._id);
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
                         {customerId && (
@@ -314,7 +332,10 @@ const SalesOrderForm = () => {
                                                     if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                 }}
                                                 placeholder="Select Item"
-                                                onAddNew={() => navigate('/items/new')}
+                                                onAddNew={() => {
+                                                    setActiveItemRowIdx(idx);
+                                                    setShowItemModal(true);
+                                                }}
                                                 addNewLabel="New Item"
                                             />
                                         </td>
@@ -442,6 +463,18 @@ const SalesOrderForm = () => {
                     </div>
                 </div>
             </form>
+
+            <QuickCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSuccess={handleCustomerCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
         </div>
     );
 };

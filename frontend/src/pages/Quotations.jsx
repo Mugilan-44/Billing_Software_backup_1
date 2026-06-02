@@ -143,7 +143,7 @@ const Quotations = () => {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            {q.grandTotal.toFixed(2)}
+                                            {(q.grandTotal || 0).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))

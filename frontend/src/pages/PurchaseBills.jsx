@@ -138,7 +138,7 @@ const PurchaseBills = () => {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            {b.grandTotal.toFixed(2)}
+                                            {(b.grandTotal || 0).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))

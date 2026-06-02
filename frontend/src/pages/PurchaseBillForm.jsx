@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, Package, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickVendorModal from '../components/QuickVendorModal';
+import QuickItemModal from '../components/QuickItemModal';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -25,6 +27,22 @@ const PurchaseBillForm = () => {
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showVendorModal, setShowVendorModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleVendorCreated = (newVendor) => {
+        setVendors(prev => [...prev, newVendor]);
+        setVendorId(newVendor._id);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
 
     const [vendorId, setVendorId] = useState('');
     const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
@@ -212,7 +230,7 @@ const PurchaseBillForm = () => {
                                 if (ven) setVendorId(ven._id);
                             }}
                             placeholder="Select or add a vendor"
-                            onAddNew={() => navigate('/vendors/new')}
+                            onAddNew={() => setShowVendorModal(true)}
                             addNewLabel="New Vendor"
                         />
                         {vendorId && (
@@ -273,7 +291,10 @@ const PurchaseBillForm = () => {
                                                     if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                 }}
                                                 placeholder="Select Item"
-                                                onAddNew={() => navigate('/items/new')}
+                                                onAddNew={() => {
+                                                    setActiveItemRowIdx(idx);
+                                                    setShowItemModal(true);
+                                                }}
                                                 addNewLabel="New Item"
                                             />
                                         </td>
@@ -401,6 +422,18 @@ const PurchaseBillForm = () => {
                     </div>
                 </div>
             </form>
+
+            <QuickVendorModal
+                isOpen={showVendorModal}
+                onClose={() => setShowVendorModal(false)}
+                onSuccess={handleVendorCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
         </div>
     );
 };
