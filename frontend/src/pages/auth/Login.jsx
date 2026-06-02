@@ -121,11 +121,11 @@ const Login = () => {
 
                 <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
                     <div className="space-y-2">
-                        <h1 className="text-4xl font-extrabold text-slate-950 tracking-tight">
-                            Hello!
+                        <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
+                            Sign In
                         </h1>
                         <p className="text-sm font-medium text-slate-500">
-                            Welcome back to your workspace.
+                            Welcome back to your Billing System
                         </p>
                     </div>
 
@@ -204,10 +204,10 @@ const Login = () => {
             </div>
 
             {/* Right Panel: Clean White/Slate-50 Statistics & Billing Illustrations */}
-            <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-between p-12 lg:p-16 border-l border-slate-200/60 relative overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-center p-12 lg:p-16 border-l border-slate-200/60 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
                 
-                {/* Top Section: Illustrations (Numbers & Graph) */}
+                {/* Illustrations (Numbers & Graph & Rotating Discovery Text) */}
                 <div className="relative z-10 w-full max-w-xl mx-auto space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Revenue growth card */}
@@ -298,19 +298,19 @@ const Login = () => {
                             <span>Week 4</span>
                         </div>
                     </div>
-                </div>
 
-                {/* Bottom Section: Rotating Discovery Text */}
-                <div className="relative z-10 w-full max-w-xl mx-auto pt-8 border-t border-slate-100 mt-8">
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex flex-wrap items-center gap-x-2">
-                        <span>Let's discover</span>
-                        <span className={`text-blue-600 transition-opacity duration-300 min-w-[120px] ${fade ? 'opacity-100' : 'opacity-0'}`}>
-                            {ROTATING_WORDS[wordIndex]}
-                        </span>
-                    </h2>
-                    <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
-                        Analyze business cashflow, track outstanding invoices, and manage client bills.
-                    </p>
+                    {/* Rotating Discovery Text */}
+                    <div className="pt-6 border-t border-slate-100">
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex flex-wrap items-center gap-x-2">
+                            <span>Let's discover</span>
+                            <span className={`text-blue-600 transition-opacity duration-300 min-w-[120px] ${fade ? 'opacity-100' : 'opacity-0'}`}>
+                                {ROTATING_WORDS[wordIndex]}
+                            </span>
+                        </h2>
+                        <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
+                            Analyze business cashflow, track outstanding invoices, and manage client bills.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
