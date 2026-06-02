@@ -209,6 +209,19 @@ const Login = () => {
                 
                 {/* Illustrations (Numbers & Graph & Rotating Discovery Text) */}
                 <div className="relative z-10 w-full max-w-xl mx-auto space-y-6">
+                    {/* Rotating Discovery Text */}
+                    <div className="pb-6 border-b border-slate-100">
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex flex-wrap items-center gap-x-2">
+                            <span>Let's discover</span>
+                            <span className={`text-blue-600 transition-opacity duration-300 min-w-[120px] ${fade ? 'opacity-100' : 'opacity-0'}`}>
+                                {ROTATING_WORDS[wordIndex]}
+                            </span>
+                        </h2>
+                        <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
+                            Analyze business cashflow, track outstanding invoices, and manage client bills.
+                        </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Revenue growth card */}
                         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-all duration-300">
@@ -297,19 +310,6 @@ const Login = () => {
                             <span>Week 3</span>
                             <span>Week 4</span>
                         </div>
-                    </div>
-
-                    {/* Rotating Discovery Text */}
-                    <div className="pt-6 border-t border-slate-100">
-                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex flex-wrap items-center gap-x-2">
-                            <span>Let's discover</span>
-                            <span className={`text-blue-600 transition-opacity duration-300 min-w-[120px] ${fade ? 'opacity-100' : 'opacity-0'}`}>
-                                {ROTATING_WORDS[wordIndex]}
-                            </span>
-                        </h2>
-                        <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
-                            Analyze business cashflow, track outstanding invoices, and manage client bills.
-                        </p>
                     </div>
                 </div>
             </div>
