@@ -9,6 +9,10 @@ export const createExpense = async (req, res) => {
             payload.companyId = req.user.companyId;
             payload.branchId = req.user.branchId;
         }
+        // Clean empty string vendorId and customerId fields to avoid cast issues
+        if (payload.vendorId === '') delete payload.vendorId;
+        if (payload.customerId === '') delete payload.customerId;
+
         const expense = await Expense.create(payload);
         res.status(201).json({ success: true, data: expense });
     } catch (error) {
