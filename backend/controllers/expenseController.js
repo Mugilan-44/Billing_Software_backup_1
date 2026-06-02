@@ -85,3 +85,33 @@ export const getVehicleAggregations = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const getExpense = async (req, res) => {
+    try {
+        const expense = await findDocument(Expense, req.params.id, req.user);
+        if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+        res.json({ success: true, data: expense });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateExpense = async (req, res) => {
+    try {
+        const expense = await findDocument(Expense, req.params.id, req.user);
+        if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+        
+        const payload = { ...req.body };
+        if (payload.vendorId === '') payload.vendorId = null;
+        if (payload.customerId === '') payload.customerId = null;
+
+        const updatedExpense = await Expense.findByIdAndUpdate(
+            req.params.id,
+            { $set: payload },
+            { new: true, runValidators: true }
+        );
+        res.json({ success: true, data: updatedExpense });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};

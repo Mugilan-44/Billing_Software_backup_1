@@ -21,6 +21,8 @@ const InputRow = ({ label, required, children, helper, error }) => (
 
 const ExpenseForm = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [vendors, setVendors] = useState([]);
     const [customers, setCustomers] = useState([]);
@@ -68,7 +70,33 @@ const ExpenseForm = () => {
     useEffect(() => {
         fetchVendors();
         fetchCustomers();
-    }, []);
+        if (isEdit) {
+            fetchExpense();
+        }
+    }, [id]);
+
+    const fetchExpense = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`/api/expenses/${id}`);
+            const exp = res.data.data;
+            setFormData({
+                date: exp.date ? new Date(exp.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                category: exp.category || 'Subcontractor',
+                amount: exp.amount || '',
+                vendorId: exp.vendorId || '',
+                customerId: exp.customerId || '',
+                reference: exp.reference || '',
+                notes: exp.notes || '',
+                status: exp.status || 'Paid',
+                paymentMethod: exp.paymentMethod || 'Cash'
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load expense details');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchVendors = async () => {
         try {
@@ -128,13 +156,17 @@ const ExpenseForm = () => {
 
         try {
             const cleanedData = { ...formData, amount: Number(formData.amount) };
-            if (!cleanedData.vendorId) delete cleanedData.vendorId;
-            if (!cleanedData.customerId) delete cleanedData.customerId;
+            cleanedData.vendorId = cleanedData.vendorId || null;
+            cleanedData.customerId = cleanedData.customerId || null;
 
-            await axios.post('/api/expenses', cleanedData);
+            if (isEdit) {
+                await axios.put(`/api/expenses/${id}`, cleanedData);
+            } else {
+                await axios.post('/api/expenses', cleanedData);
+            }
             navigate('/expenses');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to record expense');
+            setError(err.response?.data?.message || 'Failed to save expense');
             setLoading(false);
         }
     };
@@ -151,7 +183,7 @@ const ExpenseForm = () => {
                     <div>
                         <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                             <Calculator className="text-blue-500" size={20} />
-                            Record New Expense
+                            {isEdit ? 'Edit Expense' : 'Record New Expense'}
                         </h1>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Business Expenditure Tracking</p>
                     </div>
@@ -163,7 +195,7 @@ const ExpenseForm = () => {
                     <button type="submit" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2 shadow-lg shadow-blue-500/10">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save Expense'}
+                        {loading ? 'Saving...' : isEdit ? 'Update Expense' : 'Save Expense'}
                     </button>
                 </div>
             </div>
@@ -305,7 +337,7 @@ const ExpenseForm = () => {
                             Cancel
                         </button>
                         <button type="submit" disabled={loading} className="btn-primary px-10 shadow-lg shadow-blue-500/10">
-                            {loading ? 'Saving...' : 'Save Expense'}
+                            {loading ? 'Saving...' : isEdit ? 'Update Expense' : 'Save Expense'}
                         </button>
                     </div>
                 </div>
