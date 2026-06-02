@@ -77,7 +77,7 @@ const Items = () => {
                                             <div className="text-sm font-medium text-gray-900">{item.name}</div>
                                             <div className="text-xs text-gray-500 font-mono">SKU: {item.sku || 'N/A'}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{item.sellingPrice.toFixed(2)}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{(item.sellingPrice || 0).toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center">
                                             <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
                                                 {item.taxRate !== undefined ? item.taxRate : (item.gstPercentage || item.gstPercent || 0)}% ({item.taxType || 'GST'})

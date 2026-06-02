@@ -94,7 +94,7 @@ const PaymentForm = () => {
             if (field === 'invoiceId' && value) {
                 const inv = invoices.find(i => i._id === value);
                 if (inv) {
-                    next.amount = inv.grandTotal - inv.amountPaid;
+                    next.amount = (inv.grandTotal || 0) - (inv.amountPaid || 0);
                 }
             }
 
@@ -211,7 +211,7 @@ const PaymentForm = () => {
                             <option value="">None (Advance Payment)</option>
                             {availableInvoices.map(inv => (
                                 <option key={inv._id} value={inv._id}>
-                                    {inv.invoiceNumber} - Due: ₹{(inv.grandTotal - inv.amountPaid).toFixed(2)}
+                                    {inv.invoiceNumber} - Due: ₹{((inv.grandTotal || 0) - (inv.amountPaid || 0)).toFixed(2)}
                                 </option>
                             ))}
                         </select>

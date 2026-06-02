@@ -242,15 +242,15 @@ const PurchaseBillViewer = () => {
                         <div className="w-1/3 space-y-3 text-sm">
                             <div className="flex justify-between text-slate-600">
                                 <span>Sub Total</span>
-                                <span className="font-medium text-slate-900">₹{bill.subTotal.toFixed(2)}</span>
+                                <span className="font-medium text-slate-900">₹{(bill.subTotal || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-slate-600">
                                 <span>Tax Total</span>
-                                <span>₹{bill.taxTotal.toFixed(2)}</span>
+                                <span>₹{(bill.taxTotal || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">
                                 <span>Bill Total</span>
-                                <span className="text-rose-600">₹{bill.grandTotal.toFixed(2)}</span>
+                                <span className="text-rose-600">₹{(bill.grandTotal || 0).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

@@ -87,14 +87,14 @@ const QuotationViewer = () => {
 
     const handleShareWhatsApp = () => {
         const link = `${window.location.origin}/public/quotation/${id}`;
-        const text = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nHere is your latest Quotation (${quoteData.quotation.quoteNumber}) for ₹${quoteData.quotation.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
+        const text = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nHere is your latest Quotation (${quoteData.quotation.quoteNumber}) for ₹${(quoteData.quotation.grandTotal || 0).toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleShareEmail = () => {
         const link = `${window.location.origin}/public/quotation/${id}`;
         const subject = `Quotation ${quoteData.quotation.quoteNumber} from ${quoteData.settings?.companyName || 'Billing System'}`;
-        const body = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nPlease find our quotation (${quoteData.quotation.quoteNumber}) for the amount of ₹${quoteData.quotation.grandTotal.toFixed(2)}.\n\nYou can view and download it here: ${link}\n\nBest regards,\n${quoteData.settings?.companyName || 'Sales Team'}`;
+        const body = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nPlease find our quotation (${quoteData.quotation.quoteNumber}) for the amount of ₹${(quoteData.quotation.grandTotal || 0).toFixed(2)}.\n\nYou can view and download it here: ${link}\n\nBest regards,\n${quoteData.settings?.companyName || 'Sales Team'}`;
         window.location.href = `mailto:${quoteData.quotation.customerId?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
@@ -150,8 +150,8 @@ const QuotationViewer = () => {
                                 {item.itemId?.hsnCode && <p className="text-xs text-slate-400 mt-1 font-normal">HSN: {item.itemId.hsnCode}</p>}
                             </td>
                             <td className="py-4 text-center text-slate-600">{item.quantity}</td>
-                            <td className="py-4 text-right text-slate-600">₹{item.rate.toFixed(2)}</td>
-                            <td className="py-4 text-right font-medium text-slate-900">₹{item.amount.toFixed(2)}</td>
+                            <td className="py-4 text-right text-slate-600">₹{(item.rate || 0).toFixed(2)}</td>
+                            <td className="py-4 text-right font-medium text-slate-900">₹{(item.amount || 0).toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -161,22 +161,22 @@ const QuotationViewer = () => {
                 <div className="w-1/3 space-y-3 text-sm">
                     <div className="flex justify-between text-slate-600">
                         <span>Sub Total</span>
-                        <span className="font-medium text-slate-900">₹{quote.subTotal.toFixed(2)}</span>
+                        <span className="font-medium text-slate-900">₹{(quote.subTotal || 0).toFixed(2)}</span>
                     </div>
                     {quote.taxTotal?.cgst !== undefined ? (
                         <div className="flex justify-between text-slate-600">
                             <span>Tax (CGST+SGST)</span>
-                            <span>₹{(quote.taxTotal.cgst + quote.taxTotal.sgst).toFixed(2)}</span>
+                            <span>₹{((quote.taxTotal.cgst || 0) + (quote.taxTotal.sgst || 0)).toFixed(2)}</span>
                         </div>
                     ) : quote.taxTotal !== undefined ? (
                         <div className="flex justify-between text-slate-600">
                             <span>Tax Total</span>
-                            <span>₹{quote.taxTotal.toFixed(2)}</span>
+                            <span>₹{(quote.taxTotal || 0).toFixed(2)}</span>
                         </div>
                     ) : null}
                     <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">
                         <span>Estimate Total</span>
-                        <span className="text-blue-600">₹{quote.grandTotal.toFixed(2)}</span>
+                        <span className="text-blue-600">₹{(quote.grandTotal || 0).toFixed(2)}</span>
                     </div>
                 </div>
             </div>
