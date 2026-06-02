@@ -3,6 +3,8 @@ import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Calculator, Tag, Save, Info, Calendar, DollarSign, User, FileText, CreditCard } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickVendorModal from '../components/QuickVendorModal';
 
 const InputRow = ({ label, required, children, helper, error }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0 font-sans">
@@ -24,6 +26,9 @@ const ExpenseForm = () => {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showVendorModal, setShowVendorModal] = useState(false);
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
 
     const [expenseCategories, setExpenseCategories] = useState([
         'Advertising And Marketing',
@@ -98,6 +103,16 @@ const ExpenseForm = () => {
             setExpenseCategories(prev => [...prev, name].sort());
             setFormData(prev => ({ ...prev, category: name }));
         }
+    };
+
+    const handleVendorCreated = (newVendor) => {
+        setVendors(prev => [...prev, newVendor]);
+        setFormData(prev => ({ ...prev, vendorId: newVendor._id }));
+    };
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setFormData(prev => ({ ...prev, customerId: newCustomer._id }));
     };
 
     const handleSubmit = async (e) => {
@@ -211,19 +226,16 @@ const ExpenseForm = () => {
                     </h3>
 
                     <InputRow label="Vendor" helper="Associate this expense with a vendor record">
-                        <div className="relative max-w-md">
-                            <select
-                                name="vendorId"
-                                value={formData.vendorId}
-                                onChange={handleChange}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                            >
-                                <option value="">Select Vendor</option>
-                                {vendors.map(v => (
-                                    <option key={v._id} value={v._id}>{v.companyName}</option>
-                                ))}
-                            </select>
-                        </div>
+                        <SearchableDropdown
+                            options={vendors.map(v => v.companyName)}
+                            value={vendors.find(v => v._id === formData.vendorId)?.companyName || ''}
+                            onChange={(name) => {
+                                const vend = vendors.find(v => v.companyName === name);
+                                setFormData(prev => ({ ...prev, vendorId: vend ? vend._id : '' }));
+                            }}
+                            onAddNew={() => setShowVendorModal(true)}
+                            placeholder="Select Vendor"
+                        />
                     </InputRow>
 
                     <InputRow label="Customer" helper="Associate this expense with a customer record">
@@ -234,6 +246,7 @@ const ExpenseForm = () => {
                                 const cust = customers.find(c => c.companyName === name);
                                 setFormData(prev => ({ ...prev, customerId: cust ? cust._id : '' }));
                             }}
+                            onAddNew={() => setShowCustomerModal(true)}
                             placeholder="Select Customer"
                         />
                     </InputRow>
@@ -296,6 +309,18 @@ const ExpenseForm = () => {
                     </div>
                 </div>
             </form>
+
+            <QuickVendorModal 
+                isOpen={showVendorModal} 
+                onClose={() => setShowVendorModal(false)} 
+                onSuccess={handleVendorCreated} 
+            />
+
+            <QuickCustomerModal 
+                isOpen={showCustomerModal} 
+                onClose={() => setShowCustomerModal(false)} 
+                onSuccess={handleCustomerCreated} 
+            />
         </div>
     );
 };
