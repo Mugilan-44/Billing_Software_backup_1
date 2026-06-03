@@ -304,10 +304,15 @@ const SalesOrderForm = () => {
 
     useEffect(() => {
         if (isEdit) return;
-        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
-            setTaxMode(taxSystemMode);
+        if (taxSystemMode === 'WITH_TAX') {
+            setTaxMode('WITH_TAX');
+            setIsTaxed(true);
+        } else if (taxSystemMode === 'WITHOUT_TAX') {
+            setTaxMode('WITHOUT_TAX');
+            setIsTaxed(false);
         } else {
             setTaxMode('WITH_TAX');
+            setIsTaxed(true);
         }
     }, [taxSystemMode, isEdit]);
 
@@ -637,29 +642,31 @@ const SalesOrderForm = () => {
                         </select>
                     </InputRow>
 
-                    <InputRow label="Tax Setting" helper="Choose whether to record this order with or without tax">
-                        <div className="flex items-center gap-4">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsTaxed(true);
-                                    if (taxType === 'None') setTaxType('GST');
-                                }}
-                                className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                            >
-                                With Tax
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsTaxed(false);
-                                }}
-                                className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${!isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                            >
-                                Without Tax
-                            </button>
-                        </div>
-                    </InputRow>
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax Setting" helper="Choose whether to record this order with or without tax">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsTaxed(true);
+                                        if (taxType === 'None') setTaxType('GST');
+                                    }}
+                                    className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    With Tax
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsTaxed(false);
+                                    }}
+                                    className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${!isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    Without Tax
+                                </button>
+                            </div>
+                        </InputRow>
+                    )}
 
                     {isTaxed && (
                         <>
