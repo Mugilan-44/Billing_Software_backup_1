@@ -572,14 +572,6 @@ const PurchaseBillForm = () => {
                                 </div>
                             )}
                         </div>
-                                    value={billNumber}
-                                    onChange={(e) => setBillNumber(e.target.value)}
-                                    placeholder="e.g. PB-WT-1002"
-                                    required={!isAutoNumber}
-                                    disabled={isEdit}
-                                />
-                            )}
-                        </div>
                     </InputRow>
 
                     <InputRow label="Bill Date" required helper="The date mentioned on the vendor's invoice">
