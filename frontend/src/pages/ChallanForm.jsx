@@ -57,6 +57,13 @@ const ChallanForm = () => {
     const [companySettings, setCompanySettings] = useState(null);
     const [challanNumberPlaceholder, setChallanNumberPlaceholder] = useState('CHL-0000X');
 
+    // Numbering Customization States
+    const [showNumberingConfig, setShowNumberingConfig] = useState(false);
+    const [customPrefix, setCustomPrefix] = useState('');
+    const [customNextNumber, setCustomNextNumber] = useState(1);
+    const [customDigits, setCustomDigits] = useState(4);
+    const [savingSettings, setSavingSettings] = useState(false);
+
     const [items, setItems] = useState([]);
     const [notes, setNotes] = useState('');
     const [termsAndConditions, setTermsAndConditions] = useState('');
@@ -210,8 +217,38 @@ const ChallanForm = () => {
             const digits = modeSettings.digits || 4;
             setChallanNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
             setChallanNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setCustomPrefix(prefix);
+            setCustomNextNumber(nextNum);
+            setCustomDigits(digits);
         }
     }, [taxMode, companySettings, isEdit]);
+
+    const handleSaveNumberingConfig = async () => {
+        setSavingSettings(true);
+        try {
+            const modeKey = taxMode === 'WITH_TAX' ? 'withTax' : 'withoutTax';
+            const updatedNumberingSettings = {
+                ...companySettings.numberingSettings,
+                challan: {
+                    ...companySettings.numberingSettings?.challan,
+                    [modeKey]: {
+                        auto: true,
+                        prefix: customPrefix,
+                        nextNumber: Number(customNextNumber),
+                        digits: Number(customDigits)
+                    }
+                }
+            };
+            const res = await axios.put('/api/settings', { numberingSettings: updatedNumberingSettings });
+            setCompanySettings(res.data.data);
+            setShowNumberingConfig(false);
+        } catch (err) {
+            console.error('Error saving numbering config', err);
+            alert('Failed to save numbering configuration');
+        } finally {
+            setSavingSettings(false);
+        }
+    };
 
     useEffect(() => {
         if (isEdit) return;
@@ -470,35 +507,104 @@ const ChallanForm = () => {
                     )}
 
                     <InputRow label="Delivery Challan Number" required>
-                        <div className="flex items-center gap-4">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
-                                    checked={isAutoNumber}
-                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
-                                    disabled={isEdit}
-                                />
-                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
-                            </label>
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                        checked={isAutoNumber}
+                                        onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                        disabled={isEdit}
+                                    />
+                                    <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                                </label>
+                                
+                                {isAutoNumber ? (
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="text" 
+                                            className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                            value={challanNumberPlaceholder} 
+                                            disabled 
+                                        />
+                                        {!isEdit && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNumberingConfig(prev => !prev)}
+                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline focus:outline-none"
+                                            >
+                                                {showNumberingConfig ? 'Hide Customization' : 'Customize Format'}
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <input 
+                                        type="text" 
+                                        className="input-field max-w-xs font-mono"
+                                        value={challanNumber}
+                                        onChange={(e) => setChallanNumber(e.target.value)}
+                                        placeholder="e.g. CHL-WT-1002"
+                                        required={!isAutoNumber}
+                                        disabled={isEdit}
+                                    />
+                                )}
+                            </div>
                             
-                            {isAutoNumber ? (
-                                <input 
-                                    type="text" 
-                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
-                                    value={challanNumberPlaceholder} 
-                                    disabled 
-                                />
-                            ) : (
-                                <input 
-                                    type="text" 
-                                    className="input-field max-w-xs font-mono"
-                                    value={challanNumber}
-                                    onChange={(e) => setChallanNumber(e.target.value)}
-                                    placeholder="e.g. CHL-WT-1002"
-                                    required={!isAutoNumber}
-                                    disabled={isEdit}
-                                />
+                            {showNumberingConfig && !isEdit && (
+                                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3 max-w-md animate-in fade-in duration-250">
+                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Customize Auto-Numbering Format</h4>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Prefix</label>
+                                            <input 
+                                                type="text" 
+                                                className="input-field font-mono text-xs" 
+                                                value={customPrefix}
+                                                onChange={(e) => setCustomPrefix(e.target.value)}
+                                                placeholder="e.g. CHL-WT-"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Next Number</label>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                className="input-field text-xs" 
+                                                value={customNextNumber}
+                                                onChange={(e) => setCustomNextNumber(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Digits (Padding)</label>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                max="10"
+                                                className="input-field text-xs" 
+                                                value={customDigits}
+                                                onChange={(e) => setCustomDigits(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2 pt-1">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowNumberingConfig(false)}
+                                            className="px-3 py-1 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            disabled={savingSettings}
+                                            onClick={handleSaveNumberingConfig}
+                                            className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700"
+                                        >
+                                            {savingSettings ? 'Saving...' : 'Save & Apply'}
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </InputRow>

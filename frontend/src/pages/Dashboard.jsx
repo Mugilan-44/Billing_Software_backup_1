@@ -16,7 +16,7 @@ import { Bar } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const Dashboard = () => {
-    const { user } = useContext(AuthContext);
+    const { user, taxSystemMode } = useContext(AuthContext);
     const adminName = user?.name || 'Admin';
 
     const [data, setData] = useState(null);
@@ -28,21 +28,10 @@ const Dashboard = () => {
     const [dynamicChartData, setDynamicChartData] = useState(null);
     const [dynamicTotals, setDynamicTotals] = useState(null);
 
-    const getInitialTaxFilter = () => {
-        const perms = user?.permissions;
-        if (!perms) return 'overall';
-        if (perms.overallTax !== false) return 'overall';
-        if (perms.withTax !== false) return 'with_tax';
-        if (perms.noTax !== false) return 'without_tax';
-        return 'overall';
-    };
-
-    // Filter and tab states
-    const [taxFilter, setTaxFilter] = useState(getInitialTaxFilter());
-
-    useEffect(() => {
-        setTaxFilter(getInitialTaxFilter());
-    }, [user?.permissions]);
+    const taxFilter = useMemo(() => {
+        if (!taxSystemMode) return 'overall';
+        return taxSystemMode === 'OVERALL' ? 'overall' : (taxSystemMode === 'WITH_TAX' ? 'with_tax' : 'without_tax');
+    }, [taxSystemMode]);
 
     const [activeTab, setActiveTab] = useState('customers'); // 'customers', 'payments', 'items', 'stock'
     const [activities, setActivities] = useState([]);
@@ -412,33 +401,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    {/* Tax Filter Toggle */}
-                    <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-200/50">
-                        {(user?.permissions?.overallTax !== false || user?.role === 'SUPER_ADMIN') && (
-                            <button
-                                onClick={() => setTaxFilter('overall')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${taxFilter === 'overall' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                Overall
-                            </button>
-                        )}
-                        {(user?.permissions?.withTax !== false || user?.role === 'SUPER_ADMIN') && (
-                            <button
-                                onClick={() => setTaxFilter('with_tax')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${taxFilter === 'with_tax' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                With Tax
-                            </button>
-                        )}
-                        {(user?.permissions?.noTax !== false || user?.role === 'SUPER_ADMIN') && (
-                            <button
-                                onClick={() => setTaxFilter('without_tax')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${taxFilter === 'without_tax' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                No Tax
-                            </button>
-                        )}
-                    </div>
+
 
                     <Link to="/invoices/new" className="btn-primary py-2 px-4 shadow-md font-bold text-xs">
                         <Plus size={14} /> Create Invoice
