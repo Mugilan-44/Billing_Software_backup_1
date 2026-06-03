@@ -63,16 +63,17 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
             if (isBold || isVibrant) {
                 // Bold/Vibrant top header banner
                 doc.rect(0, 0, 595, 120).fill(accentColor);
-                doc.fillColor('white').font(fontBold).fontSize(18).text(settings?.companyName || 'Transport Billing & Accounting', 50, 40);
-                doc.fontSize(9).font(fontRegular).text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, 65);
+                doc.fillColor('white').font(fontBold).fontSize(18).text(settings?.companyName || 'Transport Billing & Accounting', 50, 40, { width: 240 });
+                doc.fontSize(9).font(fontRegular).text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, doc.y + 4, { width: 240 });
                 if (settings?.gstNumber) {
-                    doc.text(`GSTIN: ${settings.gstNumber}`, 50, 80);
+                    doc.text(`GSTIN: ${settings.gstNumber}`, 50, doc.y + 2);
                 }
+                const leftColBottom = doc.y;
 
-                doc.fillColor('white').font(fontBold).fontSize(22).text(docTitle, 400, 40, { align: 'right' });
-                doc.fontSize(10).font(fontRegular).text(`No: ${invoice.invoiceNumber}`, 400, 70, { align: 'right' });
-                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 400, 85, { align: 'right' });
-                currentY = 140;
+                doc.fillColor('white').font(fontBold).fontSize(22).text(docTitle, 300, 40, { align: 'right', width: 245 });
+                doc.fontSize(10).font(fontRegular).text(`No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
+                currentY = Math.max(140, leftColBottom + 15, doc.y + 15);
             } else if (isClassic) {
                 // Classic Centered Header
                 if (settings?.logoUrl) {
@@ -88,13 +89,13 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                         currentY += 60;
                     }
                 }
-                doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { align: 'center' });
-                currentY += 25;
-                doc.font(fontRegular).fontSize(9).text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY, { align: 'center' });
-                currentY += 15;
+                doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { align: 'center', width: 495 });
+                currentY = doc.y + 5;
+                doc.font(fontRegular).fontSize(9).text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY, { align: 'center', width: 495 });
+                currentY = doc.y + 3;
                 if (settings?.gstNumber) {
-                    doc.text(`GSTIN: ${settings.gstNumber}`, 50, currentY, { align: 'center' });
-                    currentY += 15;
+                    doc.text(`GSTIN: ${settings.gstNumber}`, 50, currentY, { align: 'center', width: 495 });
+                    currentY = doc.y + 3;
                 }
                 
                 // Double lines
@@ -114,21 +115,22 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                 currentY += 25;
             } else if (isMinimal) {
                 // Clean Minimal layout
-                doc.fillColor('#0f172a').font(fontBold).fontSize(18).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY);
-                currentY += 22;
+                doc.fillColor('#0f172a').font(fontBold).fontSize(18).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { width: 240 });
+                currentY = doc.y + 4;
                 doc.font(fontRegular).fontSize(9).fillColor('#475569');
-                doc.text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY);
-                currentY += 14;
+                doc.text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY, { width: 240 });
+                currentY = doc.y + 2;
                 if (settings?.gstNumber) {
                     doc.text(`GSTIN: ${settings.gstNumber}`, 50, currentY);
-                    currentY += 14;
+                    currentY = doc.y + 2;
                 }
+                const leftColBottom = doc.y;
 
-                doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(docTitle, 400, 50, { align: 'right' });
-                doc.font(fontRegular).fontSize(9).fillColor('#475569').text(`No: ${invoice.invoiceNumber}`, 400, 75, { align: 'right' });
-                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 400, 90, { align: 'right' });
+                doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(docTitle, 300, 50, { align: 'right', width: 245 });
+                doc.font(fontRegular).fontSize(9).fillColor('#475569').text(`No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 
-                currentY = Math.max(currentY + 20, 120);
+                currentY = Math.max(leftColBottom + 15, doc.y + 15, 120);
                 doc.moveTo(50, currentY).lineTo(545, currentY).lineWidth(0.5).stroke('#cbd5e1');
                 currentY += 15;
             } else {
@@ -146,23 +148,24 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                         currentY += 70;
                     }
                 }
-                doc.font(fontBold).fontSize(16).fillColor(accentColor).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY);
-                currentY += 20;
+                doc.font(fontBold).fontSize(16).fillColor(accentColor).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { width: 240 });
+                currentY = doc.y + 4;
                 doc.font(fontRegular).fontSize(9).fillColor('#475569');
-                doc.text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY);
-                currentY += 15;
+                doc.text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 50, currentY, { width: 240 });
+                currentY = doc.y + 2;
                 doc.text(`GSTIN: ${settings?.gstNumber || 'Unregistered'}`, 50, currentY);
+                const leftColBottom = doc.y;
 
                 // Right side header info
-                doc.font(fontBold).fontSize(22).fillColor(accentColor).text(docTitle, 400, 50, { align: 'right' });
+                doc.font(fontBold).fontSize(22).fillColor(accentColor).text(docTitle, 300, 50, { align: 'right', width: 245 });
                 doc.fillColor('#0f172a').font(fontRegular).fontSize(10);
-                doc.text(`${docTitle} No: ${invoice.invoiceNumber}`, 400, 80, { align: 'right' });
-                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 400, 95, { align: 'right' });
+                doc.text(`${docTitle} No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 if (invoice.dueDate) {
-                    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, 400, 110, { align: 'right' });
+                    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 }
 
-                currentY = Math.max(currentY + 25, 140);
+                currentY = Math.max(leftColBottom + 15, doc.y + 15, 140);
                 doc.moveTo(50, currentY).lineTo(545, currentY).lineWidth(2).stroke(accentColor);
                 currentY += 15;
             }
