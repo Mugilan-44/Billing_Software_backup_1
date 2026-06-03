@@ -505,11 +505,19 @@ const InvoiceForm = () => {
 
             const taxAmount = taxableAmount * (taxRate / 100);
 
-            const matched = taxSystems.find(ts => ts.rate === taxRate);
-            const taxName = matched ? matched.name : (taxType !== 'GST' ? taxType : 'Tax');
-            const label = `${taxName} (${taxRate}%)`;
-
-            breakdown[label] = (breakdown[label] || 0) + taxAmount;
+            if (taxType === 'GST') {
+                const halfRate = (taxRate / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = taxAmount / 2;
+                const cgstLabel = `CGST @ ${halfRate}%`;
+                const sgstLabel = `SGST @ ${halfRate}%`;
+                breakdown[cgstLabel] = (breakdown[cgstLabel] || 0) + halfAmount;
+                breakdown[sgstLabel] = (breakdown[sgstLabel] || 0) + halfAmount;
+            } else {
+                const matched = taxSystems.find(ts => ts.rate === taxRate);
+                const taxName = matched ? matched.name : (taxType !== 'GST' ? taxType : 'Tax');
+                const label = `${taxName} (${taxRate}%)`;
+                breakdown[label] = (breakdown[label] || 0) + taxAmount;
+            }
         });
 
         return Object.entries(breakdown)
@@ -1241,7 +1249,7 @@ const InvoiceForm = () => {
                             </div>
                             {isTaxed && (
                                 <div className="flex flex-col text-gray-655 text-sm gap-1 pt-1">
-                                    {useProductSpecificTax && taxType !== 'GST' ? (
+                                    {useProductSpecificTax ? (
                                         getProductSpecificTaxBreakdown().map((row, idx) => (
                                             <div key={idx} className="flex justify-between">
                                                 <span>{row.label}</span>
@@ -1250,11 +1258,11 @@ const InvoiceForm = () => {
                                         ))
                                     ) : (
                                         <div className="flex justify-between">
-                                            <span>Tax Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                            <span>Tax Total ({taxType} {taxRate}%)</span>
                                             <span className="font-medium text-gray-900">₹{totals.taxTotal.toFixed(2)}</span>
                                         </div>
                                     )}
-                                    {taxType === 'GST' && totals.taxTotal > 0 && (
+                                    {!useProductSpecificTax && taxType === 'GST' && totals.taxTotal > 0 && (
                                         <div className="text-right text-[11px] font-semibold text-slate-500 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
                                             {getGstSummaryDisplay()}
                                         </div>
