@@ -11,7 +11,13 @@ export const getImageUrl = (url) => {
         return url;
     }
     const cleanUrl = url.replace(/^\/+/, '');
-    return API_URL ? `${API_URL}/${cleanUrl}` : `/${cleanUrl}`;
+    if (API_URL) {
+        return `${API_URL}/${cleanUrl}`;
+    }
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return `http://localhost:5050/${cleanUrl}`;
+    }
+    return `/${cleanUrl}`;
 };
 
 export function getViewerTaxBreakdown(invoice) {

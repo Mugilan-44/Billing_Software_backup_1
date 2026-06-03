@@ -116,7 +116,10 @@ const Login = () => {
                         alt="Prolync Logo"
                         className="w-10 h-10 rounded-xl bg-slate-50 p-1.5 object-contain border border-slate-200 shadow-sm"
                     />
-                    <span className="text-slate-900 text-lg font-bold tracking-tight">Prolync Billing</span>
+                    <div className="flex flex-col">
+                        <span className="text-slate-900 text-lg font-bold tracking-tight leading-none">Prolync</span>
+                        <span className="text-slate-500 text-xs font-semibold tracking-wide mt-0.5">Billing</span>
+                    </div>
                 </div>
 
                 <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
