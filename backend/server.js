@@ -62,7 +62,9 @@ app.use(cors({
     credentials: true,
     optionsSuccessStatus: 200
 }));
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(morgan('dev'));
 
 app.use((req, res, next) => {
