@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
-import { getNextSequenceValue } from '../utils/counter.utils.js';
+import { getNextCustomSequence } from '../utils/counter.utils.js';
 const { Schema } = mongoose;
 
 const lineItemSchema = new Schema({
@@ -104,6 +104,7 @@ const invoiceSchema = new Schema({
   isPublic:           { type: Boolean, default: true },
   viewCount:          { type: Number, default: 0 },
   lastViewedAt:       Date,
+  taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
 
 invoiceSchema.index({ companyId: 1, customerId: 1 });
@@ -117,9 +118,9 @@ invoiceSchema.pre('validate', async function () {
   if (this.isNew && !this.shareToken) {
     this.shareToken = crypto.randomBytes(24).toString('hex');
   }
-  if (this.isNew || !this.invoiceNumber) {
+  if (this.isNew && !this.invoiceNumber) {
     try {
-      this.invoiceNumber = await getNextSequenceValue('invoice', 'INV');
+      this.invoiceNumber = await getNextCustomSequence(this.companyId, 'invoice', this.taxMode || 'WITH_TAX');
     } catch (err) {
       throw new Error(`Failed to generate atomic sequential invoice ID: ${err.message}`);
     }

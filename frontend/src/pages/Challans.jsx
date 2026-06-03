@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Truck, Plus, Search, CheckCircle, FileText } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Challans = () => {
     const navigate = useNavigate();
     const [challans, setChallans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchChallans();
-    }, []);
+    }, [taxSystemMode]);
 
     const [sortBy, setSortBy] = useState('date-desc');
 
     const fetchChallans = async () => {
         try {
-            const res = await axios.get('/api/challans');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/challans${queryParam}`);
             setChallans(res.data.data);
         } catch (error) {
             console.error('Error fetching challans', error);

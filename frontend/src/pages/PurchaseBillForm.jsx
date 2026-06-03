@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, Package, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickVendorModal from '../components/QuickVendorModal';
 import QuickItemModal from '../components/QuickItemModal';
+import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -44,6 +45,8 @@ const PurchaseBillForm = () => {
         }
     };
 
+    // Form State
+    const { taxSystemMode } = useContext(AuthContext);
     const [vendorId, setVendorId] = useState('');
     const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState('');
@@ -54,6 +57,12 @@ const PurchaseBillForm = () => {
     const [includeBankDetails, setIncludeBankDetails] = useState(true);
     const [includeUpiQr, setIncludeUpiQr] = useState(true);
     const [discount, setDiscount] = useState(0);
+
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [billNumber, setBillNumber] = useState('');
+    const [companySettings, setCompanySettings] = useState(null);
+    const [billNumberPlaceholder, setBillNumberPlaceholder] = useState('PB-0000X');
 
     const [isTaxed, setIsTaxed] = useState(true);
     const [taxType, setTaxType] = useState('GST');
@@ -131,12 +140,14 @@ const PurchaseBillForm = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [venRes, itemRes] = await Promise.all([
+                const [vendorRes, itemRes, settingsRes] = await Promise.all([
                     axios.get('/api/vendors'),
-                    axios.get('/api/items')
+                    axios.get('/api/items'),
+                    axios.get('/api/settings')
                 ]);
-                setVendors(venRes.data.data);
+                setVendors(vendorRes.data.data);
                 setCatalogItems(itemRes.data.data);
+                setCompanySettings(settingsRes.data.data);
 
                 if (isEdit) {
                     const billRes = await axios.get(`/api/purchase-bills/${id}`);
@@ -162,6 +173,10 @@ const PurchaseBillForm = () => {
                     setTdsTcsType(data.tdsTcsType || 'None');
                     setTdsPercentage(data.tdsPercentage || 0);
                     setTcsPercentage(data.tcsPercentage || 0);
+                    setTaxMode(data.taxMode || 'WITH_TAX');
+                    setIsAutoNumber(false);
+                    setBillNumberPlaceholder(data.billNumber || '');
+                    setBillNumber(data.billNumber || '');
                     const srcItems = data.lineItems?.length ? data.lineItems : data.items || [];
                     if (srcItems.length > 0) {
                         setItems(srcItems.map(i => ({
@@ -179,6 +194,58 @@ const PurchaseBillForm = () => {
         };
         fetchData();
     }, [id]);
+
+    useEffect(() => {
+        if (isEdit || !companySettings) return;
+        const numbering = companySettings.numberingSettings?.purchaseBill;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setBillNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setBillNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+        }
+    }, [taxMode, companySettings, isEdit]);
+
+    useEffect(() => {
+        if (isEdit) return;
+        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
+            setTaxMode(taxSystemMode);
+        } else {
+            setTaxMode('WITH_TAX');
+        }
+    }, [taxSystemMode, isEdit]);
+
+    const getGstSummaryDisplay = () => {
+        if (!isTaxed || taxType !== 'GST') return null;
+        if (!useProductSpecificTax) {
+            const rate = Number(taxRate || 0);
+            const halfRate = (rate / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (totals.taxTotal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        } else {
+            const rateMap = {};
+            items.forEach(i => {
+                if (i.itemId) {
+                    const amount = (i.quantity || 0) * (i.rate || 0);
+                    const rate = Number(i.gstPercentage || 0);
+                    if (rate > 0) {
+                        const itemTax = amount * (rate / 100);
+                        rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+                    }
+                }
+            });
+            const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+                const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = (taxVal / 2).toFixed(2);
+                return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+            });
+            return lines.join(' + ');
+        }
+    };
 
     useEffect(() => {
         let sub = 0;
@@ -245,6 +312,8 @@ const PurchaseBillForm = () => {
         setError('');
         const payload = {
             vendorId,
+            billNumber: isAutoNumber ? undefined : billNumber,
+            taxMode,
             billDate,
             date: billDate,
             dueDate: dueDate || undefined,
@@ -332,8 +401,8 @@ const PurchaseBillForm = () => {
                             options={vendors.map(v => v.companyName)}
                             value={vendors.find(v => v._id === vendorId)?.companyName || ''}
                             onChange={(name) => {
-                                const ven = vendors.find(v => v.companyName === name);
-                                if (ven) setVendorId(ven._id);
+                                const vend = vendors.find(v => v.companyName === name);
+                                if (vend) setVendorId(vend._id);
                             }}
                             placeholder="Select or add a vendor"
                             onAddNew={() => setShowVendorModal(true)}
@@ -349,6 +418,54 @@ const PurchaseBillForm = () => {
                                 </div>
                             </div>
                         )}
+                    </InputRow>
+
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax System Mode" required>
+                            <select
+                                value={taxMode}
+                                onChange={(e) => setTaxMode(e.target.value)}
+                                className="select-premium max-w-xs"
+                                disabled={isEdit}
+                            >
+                                <option value="WITH_TAX">With Tax System</option>
+                                <option value="WITHOUT_TAX">Without Tax System</option>
+                            </select>
+                        </InputRow>
+                    )}
+
+                    <InputRow label="Bill Number" required>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                    checked={isAutoNumber}
+                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                    disabled={isEdit}
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                            </label>
+                            
+                            {isAutoNumber ? (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                    value={billNumberPlaceholder} 
+                                    disabled 
+                                />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs font-mono"
+                                    value={billNumber}
+                                    onChange={(e) => setBillNumber(e.target.value)}
+                                    placeholder="e.g. PB-WT-1002"
+                                    required={!isAutoNumber}
+                                    disabled={isEdit}
+                                />
+                            )}
+                        </div>
                     </InputRow>
 
                     <InputRow label="Bill Date" required helper="The date mentioned on the vendor's invoice">
@@ -656,9 +773,16 @@ const PurchaseBillForm = () => {
                                     />
                                 </div>
                                 {isTaxed && (
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500 font-medium">GST Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
-                                        <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
+                                    <div className="flex flex-col text-slate-650 text-sm gap-1 pt-1">
+                                        <div className="flex justify-between">
+                                            <span>GST Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                            <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
+                                        </div>
+                                        {taxType === 'GST' && totals.taxTotal > 0 && (
+                                            <div className="text-right text-[11px] font-semibold text-slate-550 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                                {getGstSummaryDisplay()}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

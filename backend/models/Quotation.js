@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getNextCustomSequence } from '../utils/counter.utils.js';
 
 const quotationLineItemSchema = new mongoose.Schema({
   itemId:          { type: mongoose.Schema.Types.ObjectId, ref: 'Item' },
@@ -84,7 +85,18 @@ const quotationSchema = new mongoose.Schema({
   includeSignature:   { type: Boolean, default: false },
   includeBankDetails: { type: Boolean, default: true },
   includeUpiQr:       { type: Boolean, default: true },
+  taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+quotationSchema.pre('validate', async function () {
+  if (this.isNew && !this.quoteNumber) {
+    try {
+      this.quoteNumber = await getNextCustomSequence(this.companyId, 'quotation', this.taxMode || 'WITH_TAX');
+    } catch (err) {
+      throw new Error(`Failed to generate atomic sequential quotation ID: ${err.message}`);
+    }
+  }
+});
 
 const Quotation = mongoose.model('Quotation', quotationSchema);
 export default Quotation;

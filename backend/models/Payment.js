@@ -52,6 +52,7 @@ const paymentSchema = new mongoose.Schema({
   notes: String,
   thankYouNote: { type: String, default: 'Thank you for your business!' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  taxMode: { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
 
 paymentSchema.index({ invoiceId: 1 });

@@ -151,7 +151,9 @@ export const createInvoice = async (req, res) => {
         tcsPercentage: Number(tcsPercentage) || 0,
         tcsAmount: totals.tcsAmount.toNumber(),
         includeTerms,
-        includeSignature
+        includeSignature,
+        taxMode: req.body.taxMode || 'WITH_TAX',
+        invoiceNumber: req.body.invoiceNumber || undefined
       };
 
       if (req.user.role !== 'SUPER_ADMIN') {
@@ -239,6 +241,9 @@ export const createInvoice = async (req, res) => {
 
     } catch (err) {
       await session.abortTransaction();
+      if (err.code === 11000) {
+        return res.status(400).json({ success: false, message: 'This Invoice Number already exists. Please choose a unique one.' });
+      }
       return res.status(400).json({ success: false, message: err.message });
     } finally {
       session.endSession();
@@ -359,6 +364,8 @@ export const createInvoice = async (req, res) => {
       shippingAddress,
       includeTerms: includeTerms !== undefined ? includeTerms : true,
       includeSignature: includeSignature !== undefined ? includeSignature : false,
+      taxMode: req.body.taxMode || 'WITH_TAX',
+      invoiceNumber: req.body.invoiceNumber || undefined
     };
 
     if (date) invoicePayload.date = date;
@@ -397,6 +404,9 @@ export const createInvoice = async (req, res) => {
 
     res.status(201).json({ success: true, data: invoice });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'This Invoice Number already exists. Please choose a unique one.' });
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -421,6 +431,9 @@ export const getInvoices = async (req, res) => {
 
     if (status)     filter.status = status;
     if (customerId) filter.customerId = customerId;
+    if (req.query.taxMode) {
+      filter.taxMode = req.query.taxMode;
+    }
     if (from || to) {
       filter.date = {};
       if (from) filter.date.$gte = new Date(from);

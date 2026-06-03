@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileMinus, Save, User, Calendar, FileText, Info, Plus, Trash2 } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper, error }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0 font-sans">
@@ -19,12 +20,14 @@ const InputRow = ({ label, required, children, helper, error }) => (
 
 const CreditNoteForm = () => {
     const navigate = useNavigate();
+    const { taxSystemMode } = useContext(AuthContext);
 
     // Data sources
     const [customers, setCustomers] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [companySettings, setCompanySettings] = useState(null);
 
     // Form state
     const [customerId, setCustomerId] = useState('');
@@ -39,6 +42,11 @@ const CreditNoteForm = () => {
     const [includeSignature, setIncludeSignature] = useState(false);
     const [includeBankDetails, setIncludeBankDetails] = useState(true);
     const [includeUpiQr, setIncludeUpiQr] = useState(true);
+
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [cnNumber, setCnNumber] = useState('');
+    const [cnNumberPlaceholder, setCnNumberPlaceholder] = useState('CN-00000X');
     
     // Line items returning
     const [lineItems, setLineItems] = useState([]);
@@ -50,14 +58,39 @@ const CreditNoteForm = () => {
         fetchInitialData();
     }, []);
 
+    useEffect(() => {
+        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
+            setTaxMode(taxSystemMode);
+        } else {
+            setTaxMode('WITH_TAX');
+        }
+    }, [taxSystemMode]);
+
+    useEffect(() => {
+        if (!companySettings) return;
+        const numbering = companySettings.numberingSettings?.creditNote;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setCnNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setCnNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+        }
+    }, [taxMode, companySettings]);
+
     const fetchInitialData = async () => {
         try {
-            const [custRes, invRes] = await Promise.all([
+            const [custRes, invRes, settingsRes] = await Promise.all([
                 axios.get('/api/customers'),
-                axios.get('/api/invoices')
+                axios.get('/api/invoices'),
+                axios.get('/api/settings')
             ]);
             setCustomers(custRes.data.data);
             setInvoices(invRes.data.data);
+            setCompanySettings(settingsRes.data.data);
         } catch (err) {
             console.error('Error fetching data', err);
         }
@@ -144,6 +177,25 @@ const CreditNoteForm = () => {
         setLineItems(updated);
     };
 
+    const getGstSummaryDisplay = () => {
+        const rateMap = {};
+        lineItems.forEach(item => {
+            const discAmt = item.rate * item.quantity * (item.discountPercent / 100);
+            const taxable = (item.rate * item.quantity) - discAmt;
+            const rate = Number(item.gstPercent || 0);
+            if (rate > 0) {
+                const itemTax = taxable * (rate / 100);
+                rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+            }
+        });
+        const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+            const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (taxVal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        });
+        return lines.length > 0 ? lines.join(' + ') : 'No Tax';
+    };
+
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -152,6 +204,7 @@ const CreditNoteForm = () => {
         if (!invoiceId) return setError('Invoice is required');
         if (!reason) return setError('Reason for credit is required');
         if (grandTotal <= 0) return setError('Total credit amount must be greater than zero');
+        if (!isAutoNumber && !cnNumber.trim()) return setError('Credit Note number is required for manual generation');
 
         setLoading(true);
         try {
@@ -171,7 +224,9 @@ const CreditNoteForm = () => {
                 includeTerms,
                 includeSignature,
                 includeBankDetails,
-                includeUpiQr
+                includeUpiQr,
+                taxMode,
+                cnNumber: isAutoNumber ? undefined : cnNumber
             });
             navigate('/credit-notes');
         } catch (err) {
@@ -223,6 +278,23 @@ const CreditNoteForm = () => {
                         <User size={18} className="text-slate-400" /> Transaction details
                     </h3>
 
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax System Mode" required>
+                            <select
+                                className="input-field max-w-xs"
+                                value={taxMode}
+                                onChange={(e) => {
+                                    setTaxMode(e.target.value);
+                                    setInvoiceId('');
+                                    setLineItems([]);
+                                }}
+                            >
+                                <option value="WITH_TAX">With Tax System</option>
+                                <option value="WITHOUT_TAX">Without Tax System</option>
+                            </select>
+                        </InputRow>
+                    )}
+
                     <InputRow label="Customer Name" required>
                         <SearchableDropdown
                             options={customers.map(c => c.companyName)}
@@ -248,12 +320,44 @@ const CreditNoteForm = () => {
                             onChange={(e) => handleInvoiceChange(e.target.value)}
                         >
                             <option value="">Select Invoice</option>
-                            {invoices.filter(i => (i.customerId?._id || i.customerId) === customerId).map(inv => (
+                            {invoices.filter(i => (i.customerId?._id || i.customerId) === customerId && (i.taxMode || 'WITH_TAX') === taxMode).map(inv => (
                                 <option key={inv._id} value={inv._id}>
                                     #{inv.invoiceNumber} (Total: ₹{inv.grandTotal})
                                 </option>
                             ))}
                         </select>
+                    </InputRow>
+
+                    <InputRow label="Credit Note Number" required>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 accent-red-600 rounded cursor-pointer"
+                                    checked={isAutoNumber}
+                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                            </label>
+                            
+                            {isAutoNumber ? (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                    value={cnNumberPlaceholder} 
+                                    disabled 
+                                />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs font-mono"
+                                    value={cnNumber}
+                                    onChange={(e) => setCnNumber(e.target.value)}
+                                    placeholder="e.g. CN-WT-1002"
+                                    required={!isAutoNumber}
+                                />
+                            )}
+                        </div>
                     </InputRow>
 
                     <InputRow label="Credit Note Date" required>
@@ -410,9 +514,16 @@ const CreditNoteForm = () => {
                                 <span className="font-semibold text-slate-700">₹{subTotal.toFixed(2)}</span>
                             </div>
 
-                            <div className="flex justify-between text-xs text-slate-500">
-                                <span>Tax Total</span>
-                                <span className="font-semibold text-slate-700">₹{taxTotal.toFixed(2)}</span>
+                            <div className="flex flex-col text-xs text-slate-500 gap-1 pt-1 border-t border-slate-100/50">
+                                <div className="flex justify-between">
+                                    <span>Tax Total</span>
+                                    <span className="font-semibold text-slate-700">₹{taxTotal.toFixed(2)}</span>
+                                </div>
+                                {taxTotal > 0 && (
+                                    <div className="text-right text-[11px] font-semibold text-slate-500 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                        {getGstSummaryDisplay()}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-between text-sm font-extrabold text-red-600 pt-2 border-t border-slate-100">

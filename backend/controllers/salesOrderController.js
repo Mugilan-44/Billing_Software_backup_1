@@ -5,7 +5,7 @@ import Quotation from '../models/Quotation.js';
 import Customer from '../models/Customer.js';
 import CompanySettings from '../models/CompanySettings.js';
 import { findDocument } from '../utils/tenant.utils.js';
-import { getNextSequenceValue } from '../utils/counter.utils.js';
+import { getNextCustomSequence } from '../utils/counter.utils.js';
 import { generateSalesOrderPDF } from '../utils/pdfGenerator.js';
 import { uploadPdfToCloudinary, sendSmtpEmail } from '../utils/emailService.js';
 
@@ -17,6 +17,9 @@ export const getSalesOrders = async (req, res) => {
             query.branchId = req.user.branchId;
         } else if (req.user.role === 'CUSTOMER') {
             query.customerId = req.user.customerId;
+        }
+        if (req.query.taxMode) {
+            query.taxMode = req.query.taxMode;
         }
         const salesOrders = await SalesOrder.find(query).populate('customerId', 'companyName email phone').sort({ createdAt: -1 });
         res.status(200).json({ success: true, count: salesOrders.length, data: salesOrders });
@@ -79,7 +82,8 @@ export const createSalesOrder = async (req, res) => {
 
         const grandTotal = Math.round(subTotal + taxTotal - (Number(discount) || 0) - calculatedTdsAmount + calculatedTcsAmount + (Number(adjustment) || 0));
 
-        const orderNumber = await getNextSequenceValue('salesOrder', 'SO');
+        const taxMode = req.body.taxMode || 'WITH_TAX';
+        const orderNumber = req.body.orderNumber || await getNextCustomSequence(req.user.companyId, 'salesOrder', taxMode);
 
         const salesOrderPayload = {
             orderNumber,
@@ -109,7 +113,8 @@ export const createSalesOrder = async (req, res) => {
             tdsAmount: calculatedTdsAmount,
             tcsPercentage: Number(tcsPercentage) || 0,
             tcsAmount: calculatedTcsAmount,
-            adjustment: Number(adjustment) || 0
+            adjustment: Number(adjustment) || 0,
+            taxMode
         };
 
         if (req.user.role !== 'SUPER_ADMIN') {
@@ -125,7 +130,10 @@ export const createSalesOrder = async (req, res) => {
 
         res.status(201).json({ success: true, data: salesOrder });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+        if (error.code === 11000) {
+            return res.status(400).json({ success: false, message: 'This Sales Order Number already exists. Please choose a unique one.' });
+        }
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 

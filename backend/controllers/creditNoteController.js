@@ -9,7 +9,7 @@ import AuditLog from '../models/AuditLog.js';
 import CompanySettings from '../models/CompanySettings.js';
 import { createCreditNoteSchema } from '../validators/billing.validators.js';
 import { computeInvoiceTotals } from '../utils/billing.utils.js';
-import { getNextSequenceValue } from '../utils/counter.utils.js';
+import { getNextSequenceValue, getNextCustomSequence } from '../utils/counter.utils.js';
 import { generateCreditNotePDF } from '../utils/pdfGenerator.js';
 import { findDocument } from '../utils/tenant.utils.js';
 import { uploadPdfToCloudinary, sendSmtpEmail } from '../utils/emailService.js';
@@ -23,6 +23,9 @@ export const getCreditNotes = async (req, res) => {
     if (req.user.role !== 'SUPER_ADMIN') {
       query.companyId = req.user.companyId;
       query.branchId  = req.user.branchId;
+    }
+    if (req.query.taxMode) {
+      query.taxMode = req.query.taxMode;
     }
     const notes = await CreditNote.find(query)
       .populate('customerId', 'companyName name')
@@ -57,7 +60,8 @@ export const createCreditNote = async (req, res) => {
       if (invoice.status === 'Cancelled') throw new Error('Cannot issue credit note on cancelled invoice');
       if (creditAmount > invoice.grandTotal) throw new Error('Credit amount exceeds invoice total');
 
-      const cnNumber = await getNextSequenceValue('creditNote', 'CN');
+      const taxMode = req.body.taxMode || 'WITH_TAX';
+      const cnNumber = req.body.cnNumber || await getNextCustomSequence(req.user.companyId, 'creditNote', taxMode);
 
       const creditNote = new CreditNote({
         cnNumber,
@@ -80,6 +84,7 @@ export const createCreditNote = async (req, res) => {
         includeSignature,
         includeBankDetails,
         includeUpiQr,
+        taxMode,
       });
       await creditNote.save({ session });
 
@@ -125,16 +130,15 @@ export const createCreditNote = async (req, res) => {
   // ── LEGACY: old frontend format ───────────────────────────────────────────────
   try {
     const { invoiceId, customerId, reason, amount, date, notes } = req.body;
-
-    const count  = await CreditNote.countDocuments();
-    const year   = new Date().getFullYear();
-    const cnNumber = `CN/${year}-${year + 1}/${(count + 1).toString().padStart(3, '0')}`;
+    const taxMode = req.body.taxMode || 'WITH_TAX';
+    const cnNumber = req.body.cnNumber || await getNextCustomSequence(req.user.companyId, 'creditNote', taxMode);
 
     const notePayload = {
       cnNumber, invoiceId, customerId, reason,
       amount: Number(amount),
       date: date || Date.now(),
       notes,
+      taxMode,
     };
 
     if (req.user.role !== 'SUPER_ADMIN') {

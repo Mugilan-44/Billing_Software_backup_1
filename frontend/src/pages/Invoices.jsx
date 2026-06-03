@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Download, Share2 } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Invoices = () => {
     const navigate = useNavigate();
@@ -9,14 +10,17 @@ const Invoices = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date-desc');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchInvoices();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchInvoices = async () => {
         try {
-            const res = await axios.get('/api/invoices');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/invoices${queryParam}`);
             setInvoices(res.data.data);
         } catch (error) {
             console.error('Error fetching invoices', error);

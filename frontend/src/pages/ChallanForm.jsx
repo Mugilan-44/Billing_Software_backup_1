@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Truck, Plus, Trash2, ArrowLeft, Save, Info, User, Navigation } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickCustomerModal from '../components/QuickCustomerModal';
 import QuickItemModal from '../components/QuickItemModal';
+import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -44,11 +45,18 @@ const ChallanForm = () => {
     };
 
     // Form State
+    const { taxSystemMode } = useContext(AuthContext);
     const [customerId, setCustomerId] = useState('');
     const [challanNumber, setChallanNumber] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [challanType, setChallanType] = useState('Supply');
     const [transportDetails, setTransportDetails] = useState({ vehicleNumber: '', driverName: '', route: '' });
+    
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [companySettings, setCompanySettings] = useState(null);
+    const [challanNumberPlaceholder, setChallanNumberPlaceholder] = useState('CHL-0000X');
+
     const [items, setItems] = useState([]);
     const [notes, setNotes] = useState('');
     const [termsAndConditions, setTermsAndConditions] = useState('');
@@ -131,12 +139,14 @@ const ChallanForm = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [custRes, itemRes] = await Promise.all([
+                const [custRes, itemRes, settingsRes] = await Promise.all([
                     axios.get('/api/customers'),
-                    axios.get('/api/items')
+                    axios.get('/api/items'),
+                    axios.get('/api/settings')
                 ]);
                 setCustomers(custRes.data.data);
                 setCatalogItems(itemRes.data.data);
+                setCompanySettings(settingsRes.data.data);
 
                 if (isEdit) {
                     const challanRes = await axios.get(`/api/public/challans/${id}`);
@@ -166,6 +176,10 @@ const ChallanForm = () => {
                     setTdsTcsType(data.tdsTcsType || 'None');
                     setTdsPercentage(data.tdsPercentage || 0);
                     setTcsPercentage(data.tcsPercentage || 0);
+                    setTaxMode(data.taxMode || 'WITH_TAX');
+                    setIsAutoNumber(false);
+                    setChallanNumberPlaceholder(data.challanNumber || '');
+                    setChallanNumber(data.challanNumber || '');
                     if (data.items?.length > 0) {
                         setItems(data.items.map(i => ({
                             itemId: i.itemId?._id || i.itemId || '',
@@ -183,6 +197,59 @@ const ChallanForm = () => {
         };
         fetchData();
     }, [id]);
+
+    useEffect(() => {
+        if (isEdit || !companySettings) return;
+        const numbering = companySettings.numberingSettings?.challan;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setChallanNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setChallanNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+        }
+    }, [taxMode, companySettings, isEdit]);
+
+    useEffect(() => {
+        if (isEdit) return;
+        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
+            setTaxMode(taxSystemMode);
+        } else {
+            setTaxMode('WITH_TAX');
+        }
+    }, [taxSystemMode, isEdit]);
+
+    const getGstSummaryDisplay = () => {
+        if (!isTaxed || taxType !== 'GST') return null;
+        if (!useProductSpecificTax) {
+            const rate = Number(taxRate || 0);
+            const halfRate = (rate / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (totals.taxTotal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        } else {
+            const rateMap = {};
+            items.forEach(i => {
+                if (i.itemId) {
+                    const amountBeforeDiscount = (i.quantity || 0) * (i.rate || 0);
+                    const amountAfterDiscount = amountBeforeDiscount;
+                    const rate = Number(i.gstPercent || 0);
+                    if (rate > 0) {
+                        const itemTax = amountAfterDiscount * (rate / 100);
+                        rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+                    }
+                }
+            });
+            const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+                const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = (taxVal / 2).toFixed(2);
+                return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+            });
+            return lines.join(' + ');
+        }
+    };
 
     const handleAddItem = () => {
         if (catalogItems.length === 0) return;
@@ -247,7 +314,8 @@ const ChallanForm = () => {
         try {
             const payload = {
                 customerId,
-                challanNumber: challanNumber || undefined,
+                challanNumber: isAutoNumber ? undefined : challanNumber,
+                taxMode,
                 date,
                 challanType,
                 transportDetails,
@@ -387,14 +455,52 @@ const ChallanForm = () => {
                         />
                     </InputRow>
 
-                    <InputRow label="Delivery Challan Number" helper="Leave blank to auto-generate">
-                        <input
-                            type="text"
-                            className="input-field max-w-xs"
-                            placeholder="e.g. CHL-001"
-                            value={challanNumber}
-                            onChange={(e) => setChallanNumber(e.target.value)}
-                        />
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax System Mode" required>
+                            <select
+                                value={taxMode}
+                                onChange={(e) => setTaxMode(e.target.value)}
+                                className="select-premium max-w-xs"
+                                disabled={isEdit}
+                            >
+                                <option value="WITH_TAX">With Tax System</option>
+                                <option value="WITHOUT_TAX">Without Tax System</option>
+                            </select>
+                        </InputRow>
+                    )}
+
+                    <InputRow label="Delivery Challan Number" required>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                    checked={isAutoNumber}
+                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                    disabled={isEdit}
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                            </label>
+                            
+                            {isAutoNumber ? (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                    value={challanNumberPlaceholder} 
+                                    disabled 
+                                />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs font-mono"
+                                    value={challanNumber}
+                                    onChange={(e) => setChallanNumber(e.target.value)}
+                                    placeholder="e.g. CHL-WT-1002"
+                                    required={!isAutoNumber}
+                                    disabled={isEdit}
+                                />
+                            )}
+                        </div>
                     </InputRow>
 
                     <InputRow label="Challan Type" required>
@@ -765,9 +871,16 @@ const ChallanForm = () => {
                                 <span className="font-medium text-slate-900">₹{totals.subTotal.toFixed(2)}</span>
                             </div>
                             {isTaxed && (
-                                <div className="flex justify-between text-slate-600">
-                                    <span>Tax ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
-                                    <span className="font-medium text-slate-900">₹{totals.taxTotal.toFixed(2)}</span>
+                                <div className="flex flex-col text-slate-600 text-sm gap-1 pt-1">
+                                    <div className="flex justify-between">
+                                        <span>Tax Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                        <span className="font-medium text-slate-900">₹{totals.taxTotal.toFixed(2)}</span>
+                                    </div>
+                                    {taxType === 'GST' && totals.taxTotal > 0 && (
+                                        <div className="text-right text-[11px] font-semibold text-slate-550 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                            {getGstSummaryDisplay()}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

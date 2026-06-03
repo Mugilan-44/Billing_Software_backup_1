@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 
 const Topbar = () => {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout, taxSystemMode, setTaxSystemMode } = useContext(AuthContext);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [taxDropdownOpen, setTaxDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const taxModeDropdownRef = useRef(null);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ customers: [], invoices: [] });
@@ -55,6 +57,9 @@ const Topbar = () => {
         const handler = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setSettingsOpen(false);
+            }
+            if (taxModeDropdownRef.current && !taxModeDropdownRef.current.contains(e.target)) {
+                setTaxDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handler);
@@ -178,6 +183,48 @@ const Topbar = () => {
             {/* Right */}
             <div className="flex items-center gap-1.5 sm:gap-2 ml-3">
 
+                {/* Tax Mode dropdown */}
+                {user?.role !== 'CUSTOMER' && (
+                    <div className="relative" ref={taxModeDropdownRef}>
+                        <button
+                            onClick={() => setTaxDropdownOpen(v => !v)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-150 ${
+                                taxDropdownOpen 
+                                    ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                                    : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+                            }`}
+                            title="Tax System Mode"
+                        >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            {taxSystemMode === 'OVERALL' ? 'Overall System' : taxSystemMode === 'WITH_TAX' ? 'With Tax' : 'Without Tax'}
+                            <ChevronDown size={13} className="text-slate-400" />
+                        </button>
+
+                        {taxDropdownOpen && (
+                            <div className="dropdown-panel" style={{ minWidth: '180px' }}>
+                                <div className="dropdown-item-section">System Mode</div>
+                                <button
+                                    onClick={() => { setTaxSystemMode('OVERALL'); setTaxDropdownOpen(false); }}
+                                    className={`dropdown-item ${taxSystemMode === 'OVERALL' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
+                                >
+                                    Overall System
+                                </button>
+                                <button
+                                    onClick={() => { setTaxSystemMode('WITH_TAX'); setTaxDropdownOpen(false); }}
+                                    className={`dropdown-item ${taxSystemMode === 'WITH_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
+                                >
+                                    With Tax System
+                                </button>
+                                <button
+                                    onClick={() => { setTaxSystemMode('WITHOUT_TAX'); setTaxDropdownOpen(false); }}
+                                    className={`dropdown-item ${taxSystemMode === 'WITHOUT_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
+                                >
+                                    Without Tax System
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Settings dropdown */}
                 {user?.role !== 'CUSTOMER' && (

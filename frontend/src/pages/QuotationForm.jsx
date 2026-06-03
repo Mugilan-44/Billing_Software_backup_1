@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickCustomerModal from '../components/QuickCustomerModal';
 import QuickItemModal from '../components/QuickItemModal';
+import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -44,6 +45,7 @@ const QuotationForm = () => {
         }
     };
 
+    const { taxSystemMode } = useContext(AuthContext);
     const [customerId, setCustomerId] = useState('');
     const [quoteNumberPlaceholder, setQuoteNumberPlaceholder] = useState('QT-00000X');
     const [referenceNumber, setReferenceNumber] = useState('');
@@ -52,6 +54,11 @@ const QuotationForm = () => {
     const [salesperson, setSalesperson] = useState('');
     const [projectName, setProjectName] = useState('');
     const [subject, setSubject] = useState('');
+
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [manualQuoteNumber, setManualQuoteNumber] = useState('');
+    const [companySettings, setCompanySettings] = useState(null);
 
     const [items, setItems] = useState([
         { itemId: '', name: '', quantity: 1, rate: 0, discount: 0, gstPercentage: 0 }
@@ -99,12 +106,14 @@ const QuotationForm = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [custRes, itemRes] = await Promise.all([
+                const [custRes, itemRes, settingsRes] = await Promise.all([
                     axios.get('/api/customers'),
-                    axios.get('/api/items')
+                    axios.get('/api/items'),
+                    axios.get('/api/settings')
                 ]);
                 setCustomers(custRes.data.data);
                 setCatalogItems(itemRes.data.data);
+                setCompanySettings(settingsRes.data.data);
 
                 if (isEdit) {
                     const quoteRes = await axios.get(`/api/quotations/${id}`);
@@ -137,7 +146,10 @@ const QuotationForm = () => {
                     setTdsPercentage(data.tdsPercentage || 0);
                     setTcsPercentage(data.tcsPercentage || 0);
 
+                    setTaxMode(data.taxMode || 'WITH_TAX');
+                    setIsAutoNumber(false);
                     setQuoteNumberPlaceholder(data.quoteNumber || 'QT-00000X');
+                    setManualQuoteNumber(data.quoteNumber || '');
                     if (data.items?.length > 0) {
                         setItems(data.items.map(i => ({
                             itemId: i.itemId?._id || i.itemId || '',
@@ -148,10 +160,6 @@ const QuotationForm = () => {
                             gstPercentage: i.gstPercentage || i.gstPercent || 0
                         })));
                     }
-                } else {
-                    const quoteRes = await axios.get('/api/quotations');
-                    const count = quoteRes.data.count || 0;
-                    setQuoteNumberPlaceholder(`QT-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`);
                 }
             } catch (err) {
                 console.error('Error fetching data for quotation', err);
@@ -159,6 +167,59 @@ const QuotationForm = () => {
         };
         fetchData();
     }, [id]);
+
+    useEffect(() => {
+        if (isEdit || !companySettings) return;
+        const numbering = companySettings.numberingSettings?.quotation;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setQuoteNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+        }
+    }, [taxMode, companySettings, isEdit]);
+
+    useEffect(() => {
+        if (isEdit) return;
+        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
+            setTaxMode(taxSystemMode);
+        } else {
+            setTaxMode('WITH_TAX');
+        }
+    }, [taxSystemMode, isEdit]);
+
+    const getGstSummaryDisplay = () => {
+        if (!isTaxed || taxType !== 'GST') return null;
+        if (!useProductSpecificTax) {
+            const rate = Number(taxRate || 0);
+            const halfRate = (rate / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (totals.taxTotal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        } else {
+            const rateMap = {};
+            items.forEach(i => {
+                if (i.name || i.itemId) {
+                    const amountBeforeDiscount = (i.quantity || 0) * (i.rate || 0);
+                    const discountAmount = amountBeforeDiscount * ((i.discount || 0) / 100);
+                    const amountAfterDiscount = amountBeforeDiscount - discountAmount;
+                    const rate = Number(i.gstPercentage || 0);
+                    if (rate > 0) {
+                        const itemTax = amountAfterDiscount * (rate / 100);
+                        rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+                    }
+                }
+            });
+            const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+                const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = (taxVal / 2).toFixed(2);
+                return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+            });
+            return lines.join(' + ');
+        }
+    };
 
     const calculateTotals = () => {
         let subTotal = 0;
@@ -280,6 +341,8 @@ const QuotationForm = () => {
                 quoteDate,
                 validityDate: validityDate || undefined,
                 referenceNumber,
+                taxMode,
+                quoteNumber: isAutoNumber ? undefined : manualQuoteNumber,
                 salesperson,
                 projectName,
                 subject,
@@ -373,11 +436,59 @@ const QuotationForm = () => {
                         />
                     </InputRow>
 
-                    <InputRow label="Reference#" helper="Optional reference number for tracking">
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax System Mode" required>
+                            <select
+                                value={taxMode}
+                                onChange={(e) => setTaxMode(e.target.value)}
+                                className="select-premium max-w-xs"
+                                disabled={isEdit}
+                            >
+                                <option value="WITH_TAX">With Tax System</option>
+                                <option value="WITHOUT_TAX">Without Tax System</option>
+                            </select>
+                        </InputRow>
+                    )}
+
+                    <InputRow label="Quotation Number" required>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                    checked={isAutoNumber}
+                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                    disabled={isEdit}
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                            </label>
+                            
+                            {isAutoNumber ? (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                    value={quoteNumberPlaceholder} 
+                                    disabled 
+                                />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs font-mono"
+                                    value={manualQuoteNumber}
+                                    onChange={(e) => setManualQuoteNumber(e.target.value)}
+                                    placeholder="e.g. QT-WT-1002"
+                                    required={!isAutoNumber}
+                                    disabled={isEdit}
+                                />
+                            )}
+                        </div>
+                    </InputRow>
+
+                    <InputRow label="Quotation No." helper="Optional quotation number or reference for tracking">
                         <input
                             type="text" value={referenceNumber} onChange={e => setReferenceNumber(e.target.value)}
                             className="input-field max-w-md"
-                            placeholder="e.g. PO-890"
+                            placeholder="e.g. QN-890"
                         />
                     </InputRow>
 
@@ -746,9 +857,16 @@ const QuotationForm = () => {
                             </div>
 
                             {isTaxed && (
-                                <div className="flex justify-between text-gray-600 text-sm">
-                                    <span>Tax ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
-                                    <span className="font-medium text-gray-800">₹{totals.taxTotal.toFixed(2)}</span>
+                                <div className="flex flex-col text-gray-650 text-sm gap-1 pt-1">
+                                    <div className="flex justify-between">
+                                        <span>Tax Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                        <span className="font-medium text-gray-800">₹{totals.taxTotal.toFixed(2)}</span>
+                                    </div>
+                                    {taxType === 'GST' && totals.taxTotal > 0 && (
+                                        <div className="text-right text-[11px] font-semibold text-slate-500 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                            {getGstSummaryDisplay()}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

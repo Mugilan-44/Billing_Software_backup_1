@@ -24,6 +24,12 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token') || null);
     const [loading, setLoading] = useState(true);
+    const [taxSystemMode, setTaxSystemModeState] = useState(localStorage.getItem('taxSystemMode') || 'OVERALL');
+
+    const setTaxSystemMode = (mode) => {
+        setTaxSystemModeState(mode);
+        localStorage.setItem('taxSystemMode', mode);
+    };
 
     useEffect(() => {
         const interceptor = api.interceptors.response.use(
@@ -183,7 +189,8 @@ export const AuthProvider = ({ children }) => {
         <AuthContext.Provider value={{
             user, token, loading,
             loginUser, logout,
-            getRedirectPath, getLoginPath
+            getRedirectPath, getLoginPath,
+            taxSystemMode, setTaxSystemMode
         }}>
             {!loading && children}
         </AuthContext.Provider>

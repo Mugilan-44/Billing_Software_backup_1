@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Settings, Search, Plus, Trash2, Save, Info } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickCustomerModal from '../components/QuickCustomerModal';
 import QuickItemModal from '../components/QuickItemModal';
+import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -73,8 +74,9 @@ const InvoiceForm = () => {
     };
 
     // Form State
+    const { taxSystemMode } = useContext(AuthContext);
     const [customerId, setCustomerId] = useState('');
-    const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`);
+    const [invoiceNumber, setInvoiceNumber] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [paymentTerms, setPaymentTerms] = useState('Due on Receipt');
     const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -90,6 +92,10 @@ const InvoiceForm = () => {
     const [tdsPercentage, setTdsPercentage] = useState(0);
     const [tcsPercentage, setTcsPercentage] = useState(0);
     const [tdsTcsType, setTdsTcsType] = useState('None'); // 'None', 'TDS', 'TCS'
+
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [companySettings, setCompanySettings] = useState(null);
 
     const [items, setItems] = useState([
         { itemId: '', description: '', quantity: 1, rate: 0, discountType: '%', discount: 0, taxGst: 0 }
@@ -180,20 +186,18 @@ const InvoiceForm = () => {
     useEffect(() => {
         fetchCustomers();
         fetchCatalogItems();
+        fetchSettings();
         if (isEdit) {
             fetchInvoice();
-        } else {
-            generateNextInvoiceNumber();
         }
     }, [id]);
 
-    const generateNextInvoiceNumber = async () => {
+    const fetchSettings = async () => {
         try {
-            const res = await axios.get('/api/invoices');
-            const num = (res.data.data.length + 1).toString().padStart(6, '0');
-            setInvoiceNumber(`INV-${num}`);
+            const res = await axios.get('/api/settings');
+            setCompanySettings(res.data.data);
         } catch (err) {
-            console.error('Failed to generate invoice number', err);
+            console.error('Failed to load settings', err);
         }
     };
 
@@ -216,7 +220,7 @@ const InvoiceForm = () => {
             const res = await axios.get(`/api/invoices/${id}`);
             const data = res.data.data;
             setCustomerId(data.customerId?._id || data.customerId);
-            setInvoiceNumber(data.invoiceNumber || invoiceNumber);
+            setInvoiceNumber(data.invoiceNumber || '');
             setDate(data.date?.split('T')[0] || date);
             setDueDate(data.dueDate?.split('T')[0] || dueDate);
             setNotes(data.notes || '');
@@ -224,6 +228,8 @@ const InvoiceForm = () => {
             setAmountPaid(data.amountPaid || 0);
             setBillingAddress(data.billingAddress || '');
             setShippingAddress(data.shippingAddress || '');
+            setTaxMode(data.taxMode || 'WITH_TAX');
+            setIsAutoNumber(false);
             setIsTaxed(data.isTaxed !== false);
             setTaxType(data.taxType || 'GST');
             setIncludeTerms(data.includeTerms !== false);
@@ -253,6 +259,64 @@ const InvoiceForm = () => {
                 })));
             }
         } catch (err) { console.error('Error fetching invoice', err); }
+    };
+
+    useEffect(() => {
+        if (isEdit || !companySettings) return;
+        const numbering = companySettings.numberingSettings?.invoice;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setInvoiceNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+        }
+    }, [taxMode, companySettings, isEdit]);
+
+    useEffect(() => {
+        if (isEdit) return;
+        if (taxSystemMode && taxSystemMode !== 'OVERALL') {
+            setTaxMode(taxSystemMode);
+        } else {
+            setTaxMode('WITH_TAX');
+        }
+    }, [taxSystemMode, isEdit]);
+
+    const getGstSummaryDisplay = () => {
+        if (!isTaxed || taxType !== 'GST') return null;
+        if (!useProductSpecificTax) {
+            const rate = Number(taxRate || 0);
+            const halfRate = (rate / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (totals.taxTotal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        } else {
+            const rateMap = {};
+            items.forEach(i => {
+                if (i.name || i.itemId) {
+                    const amountBeforeDiscount = (i.quantity || 0) * (i.rate || 0);
+                    let discountAmount = 0;
+                    if (i.discountType === '%') {
+                        discountAmount = amountBeforeDiscount * ((i.discount || 0) / 100);
+                    } else {
+                        discountAmount = Number(i.discount || 0);
+                    }
+                    const amountAfterDiscount = amountBeforeDiscount - discountAmount;
+                    const rate = Number(i.taxGst || 0);
+                    if (rate > 0) {
+                        const itemTax = amountAfterDiscount * (rate / 100);
+                        rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+                    }
+                }
+            });
+            const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+                const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = (taxVal / 2).toFixed(2);
+                return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+            });
+            return lines.join(' + ');
+        }
     };
 
     const handleSaveTaxPreset = (e) => {
@@ -364,7 +428,8 @@ const InvoiceForm = () => {
 
         const payload = {
             customerId,
-            invoiceNumber,
+            invoiceNumber: isAutoNumber ? undefined : invoiceNumber,
+            taxMode,
             date,
             dueDate,
             notes,
@@ -584,6 +649,54 @@ const InvoiceForm = () => {
                             onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
+                    </InputRow>
+
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax System Mode" required>
+                            <select
+                                value={taxMode}
+                                onChange={(e) => setTaxMode(e.target.value)}
+                                className="select-premium max-w-xs"
+                                disabled={isEdit}
+                            >
+                                <option value="WITH_TAX">With Tax System</option>
+                                <option value="WITHOUT_TAX">Without Tax System</option>
+                            </select>
+                        </InputRow>
+                    )}
+
+                    <InputRow label="Invoice Number" required>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                    checked={isAutoNumber}
+                                    onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                    disabled={isEdit}
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                            </label>
+                            
+                            {isAutoNumber ? (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                    value={invoiceNumber} 
+                                    disabled 
+                                />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    className="input-field max-w-xs font-mono"
+                                    value={invoiceNumber}
+                                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                                    placeholder="e.g. INV-WT-1002"
+                                    required={!isAutoNumber}
+                                    disabled={isEdit}
+                                />
+                            )}
+                        </div>
                     </InputRow>
 
                     <InputRow label="Billing Address">
@@ -993,9 +1106,16 @@ const InvoiceForm = () => {
                                 <span className="font-medium text-gray-900">₹{totals.subTotal.toFixed(2)}</span>
                             </div>
                             {isTaxed && (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Tax ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
-                                    <span className="font-medium text-gray-900">₹{totals.taxTotal.toFixed(2)}</span>
+                                <div className="flex flex-col text-gray-650 text-sm gap-1 pt-1">
+                                    <div className="flex justify-between">
+                                        <span>Tax Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                        <span className="font-medium text-gray-900">₹{totals.taxTotal.toFixed(2)}</span>
+                                    </div>
+                                    {taxType === 'GST' && totals.taxTotal > 0 && (
+                                        <div className="text-right text-[11px] font-semibold text-slate-500 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                            {getGstSummaryDisplay()}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

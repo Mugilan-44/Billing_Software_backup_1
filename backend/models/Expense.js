@@ -40,6 +40,12 @@ const expenseSchema = new mongoose.Schema({
     },
     vehicleNumber: {
         type: String,
+    },
+    taxMode: {
+        type: String,
+        enum: ['WITH_TAX', 'WITHOUT_TAX'],
+        default: 'WITH_TAX',
+        index: true
     }
 }, { timestamps: true });
 

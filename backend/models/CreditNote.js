@@ -62,6 +62,7 @@ const creditNoteSchema = new mongoose.Schema({
   includeSignature:   { type: Boolean, default: false },
   includeBankDetails: { type: Boolean, default: true },
   includeUpiQr:       { type: Boolean, default: true },
+  taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
 
 export default mongoose.model('CreditNote', creditNoteSchema);

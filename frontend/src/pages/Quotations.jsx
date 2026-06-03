@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Share2, ClipboardList } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Quotations = () => {
     const navigate = useNavigate();
@@ -9,14 +10,17 @@ const Quotations = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date-desc');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchQuotations();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchQuotations = async () => {
         try {
-            const res = await axios.get('/api/quotations');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/quotations${queryParam}`);
             setQuotations(res.data.data);
         } catch (error) {
             console.error('Error fetching quotations', error);

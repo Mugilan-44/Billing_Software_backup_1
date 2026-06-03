@@ -23,6 +23,9 @@ export const getQuotations = async (req, res) => {
     } else if (req.user.role === 'CUSTOMER') {
       query.customerId = req.user.customerId;
     }
+    if (req.query.taxMode) {
+      query.taxMode = req.query.taxMode;
+    }
     const quotations = await Quotation.find(query)
       .populate('customerId', 'companyName name email phone')
       .sort({ createdAt: -1 })
@@ -98,9 +101,8 @@ export const createQuotation = async (req, res) => {
     const adj = Number(adjustment) || 0;
     const grandTotal = Math.round(subTotal + taxTotal - disc - calculatedTdsAmount + calculatedTcsAmount + adj);
 
-    const year       = new Date().getFullYear();
-    const count      = await Quotation.countDocuments();
-    const quoteNumber = `QT-${year}-${String(count + 1).padStart(4, '0')}`;
+    const quoteNumber = req.body.quoteNumber || undefined;
+    const taxMode = req.body.taxMode || 'WITH_TAX';
 
     const quotationPayload = {
       quoteNumber, customerId, items: computedItems, lineItems: computedItems,
@@ -116,7 +118,7 @@ export const createQuotation = async (req, res) => {
       subTotal, subtotal: subTotal, taxTotal, grandTotal,
       notes, termsAndConditions,
       includeTerms, includeSignature, includeBankDetails, includeUpiQr,
-      isTaxed, taxType, taxRate, useProductSpecificTax
+      isTaxed, taxType, taxRate, useProductSpecificTax, taxMode
     };
 
     if (req.user.role !== 'SUPER_ADMIN') {
@@ -127,7 +129,10 @@ export const createQuotation = async (req, res) => {
     const quotation = await Quotation.create(quotationPayload);
     res.status(201).json({ success: true, data: quotation });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'This Quotation Number already exists. Please choose a unique one.' });
+    }
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 

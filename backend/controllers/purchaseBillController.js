@@ -8,7 +8,7 @@ import StockHistory from '../models/StockHistory.js';
 import VendorLedgerEntry from '../models/VendorLedgerEntry.js';
 import CompanySettings from '../models/CompanySettings.js';
 import { createPurchaseBillSchema } from '../validators/billing.validators.js';
-import { getNextSequenceValue } from '../utils/counter.utils.js';
+import { getNextCustomSequence } from '../utils/counter.utils.js';
 import { parseUTC } from '../utils/dateUtils.js';
 import { findDocument } from '../utils/tenant.utils.js';
 import AuditLog from '../models/AuditLog.js';
@@ -59,7 +59,8 @@ export const createPurchaseBill = async (req, res) => {
       const taxAmount = totals.taxAmount.toNumber();
       const grandTotal = totals.grandTotal.toNumber();
 
-      const billNumber = await getNextSequenceValue('purchaseBill', 'BILL');
+      const taxMode = req.body.taxMode || 'WITH_TAX';
+      const billNumber = req.body.billNumber || await getNextCustomSequence(req.user.companyId, 'purchaseBill', taxMode);
 
       const bill = new PurchaseBill({
         companyId: req.user.companyId || null,
@@ -83,6 +84,7 @@ export const createPurchaseBill = async (req, res) => {
         taxType,
         taxRate,
         useProductSpecificTax,
+        taxMode,
         tdsTcsType,
         tdsPercentage: Number(tdsPercentage) || 0,
         tdsAmount: totals.tdsAmount.toNumber(),
@@ -179,13 +181,14 @@ export const createPurchaseBill = async (req, res) => {
 
     const grandTotal = Math.round(subTotal + taxTotal - discount);
 
-    const billNumber = await getNextSequenceValue('purchaseBill', 'BILL');
+    const taxMode = req.body.taxMode || 'WITH_TAX';
+    const billNumber = req.body.billNumber || await getNextCustomSequence(req.user.companyId, 'purchaseBill', taxMode);
 
     const purchaseBillPayload = {
       billNumber, vendorId, items: processedItems,
       discount, subTotal, subtotal: subTotal,
       taxTotal, taxAmount: taxTotal,
-      grandTotal, balanceDue: grandTotal, notes,
+      grandTotal, balanceDue: grandTotal, notes, taxMode
     };
 
     if (req.user.role !== 'SUPER_ADMIN') {
@@ -229,6 +232,9 @@ export const createPurchaseBill = async (req, res) => {
 
     res.status(201).json({ success: true, data: purchaseBill });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'This Purchase Bill Number already exists. Please choose a unique one.' });
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -267,6 +273,9 @@ export const payPurchaseBill = async (req, res) => {
     res.json({ success: true, data: bill });
   } catch (err) {
     await session.abortTransaction();
+    if (err.code === 11000) {
+      return res.status(400).json({ success: false, message: 'This Purchase Bill Number already exists. Please choose a unique one.' });
+    }
     res.status(400).json({ success: false, message: err.message });
   } finally {
     session.endSession();

@@ -77,6 +77,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isCoAdmin: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 
 // Hash password before save

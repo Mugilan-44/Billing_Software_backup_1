@@ -57,6 +57,32 @@ const companySettingsSchema = new mongoose.Schema({
     theme: {
         type: String,
         default: 'light'
+    },
+    numberingSettings: {
+        invoice: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'INV-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'INV-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        },
+        quotation: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'QT-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'QT-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        },
+        challan: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'CHL-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'CHL-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        },
+        salesOrder: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'SO-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'SO-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        },
+        purchaseBill: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'PB-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'PB-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        },
+        creditNote: {
+            withTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'CN-WT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } },
+            withoutTax: { auto: { type: Boolean, default: true }, prefix: { type: String, default: 'CN-NT-' }, nextNumber: { type: Number, default: 1 }, digits: { type: Number, default: 4 } }
+        }
     }
 }, { timestamps: true });
 

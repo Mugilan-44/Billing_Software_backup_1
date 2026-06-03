@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit2, CreditCard, Filter, Download } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Payments = () => {
     const navigate = useNavigate();
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchPayments();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchPayments = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('/api/payments');
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/payments${queryParam}`);
             setPayments(res.data.data);
         } catch (error) {
             console.error('Error fetching payments', error);

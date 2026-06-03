@@ -6,7 +6,7 @@ import Item from '../models/Item.js';
 import Customer from '../models/Customer.js';
 import CompanySettings from '../models/CompanySettings.js';
 import { findDocument } from '../utils/tenant.utils.js';
-import { getNextSequenceValue } from '../utils/counter.utils.js';
+import { getNextCustomSequence } from '../utils/counter.utils.js';
 import { calculateInvoice } from '../utils/calculateInvoice.js';
 import { generateChallanPDF } from '../utils/pdfGenerator.js';
 import { uploadPdfToCloudinary, sendSmtpEmail } from '../utils/emailService.js';
@@ -56,8 +56,9 @@ const applyChallanCalculations = async (req) => {
 
 export const createChallan = async (req, res) => {
     try {
+        const taxMode = req.body.taxMode || 'WITH_TAX';
         if (!req.body.challanNumber) {
-            const challanNumber = await getNextSequenceValue('challan', 'CHL');
+            const challanNumber = await getNextCustomSequence(req.user.companyId, 'challan', taxMode);
             req.body.challanNumber = challanNumber;
         }
 
@@ -84,11 +85,14 @@ export const createChallan = async (req, res) => {
         // Apply pricing calculations
         await applyChallanCalculations(req);
 
-        const challan = new Challan(req.body);
+        const challan = new Challan({ ...req.body, taxMode });
         await challan.save();
 
         res.status(201).json({ success: true, data: challan });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ success: false, message: 'This Delivery Challan Number already exists. Please choose a unique one.' });
+        }
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -99,6 +103,9 @@ export const getChallans = async (req, res) => {
         if (req.user.role !== 'SUPER_ADMIN') {
             query.companyId = req.user.companyId;
             query.branchId = req.user.branchId;
+        }
+        if (req.query.taxMode) {
+            query.taxMode = req.query.taxMode;
         }
         const challans = await Challan.find(query).populate('customerId', 'companyName');
         res.json({ success: true, count: challans.length, data: challans });
