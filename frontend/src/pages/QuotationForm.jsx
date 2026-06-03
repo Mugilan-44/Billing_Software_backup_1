@@ -473,19 +473,7 @@ const QuotationForm = () => {
                         />
                     </InputRow>
 
-                    {taxSystemMode === 'OVERALL' && (
-                        <InputRow label="Tax System Mode" required>
-                            <select
-                                value={taxMode}
-                                onChange={(e) => setTaxMode(e.target.value)}
-                                className="select-premium max-w-xs"
-                                disabled={isEdit}
-                            >
-                                <option value="WITH_TAX">With Tax System</option>
-                                <option value="WITHOUT_TAX">Without Tax System</option>
-                            </select>
-                        </InputRow>
-                    )}
+
 
                     <InputRow label="Quotation Number" required>
                         <div className="flex flex-col gap-3">

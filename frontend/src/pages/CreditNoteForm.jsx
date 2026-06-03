@@ -315,22 +315,7 @@ const CreditNoteForm = () => {
                         <User size={18} className="text-slate-400" /> Transaction details
                     </h3>
 
-                    {taxSystemMode === 'OVERALL' && (
-                        <InputRow label="Tax System Mode" required>
-                            <select
-                                className="input-field max-w-xs"
-                                value={taxMode}
-                                onChange={(e) => {
-                                    setTaxMode(e.target.value);
-                                    setInvoiceId('');
-                                    setLineItems([]);
-                                }}
-                            >
-                                <option value="WITH_TAX">With Tax System</option>
-                                <option value="WITHOUT_TAX">Without Tax System</option>
-                            </select>
-                        </InputRow>
-                    )}
+
 
                     <InputRow label="Customer Name" required>
                         <SearchableDropdown
