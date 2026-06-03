@@ -16,6 +16,62 @@ const getImageUrl = (url) => {
     }
     return `/${cleanUrl}`;
 };
+
+const resizeAndCropImage = (file, targetWidth, targetHeight, mode = 'contain') => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (mode === 'crop') {
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    const imgRatio = width / height;
+                    const targetRatio = targetWidth / targetHeight;
+                    
+                    let sx = 0, sy = 0, sWidth = width, sHeight = height;
+                    if (imgRatio > targetRatio) {
+                        sWidth = height * targetRatio;
+                        sx = (width - sWidth) / 2;
+                    } else {
+                        sHeight = width / targetRatio;
+                        sy = (height - sHeight) / 2;
+                    }
+                    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+                } else {
+                    const ratio = Math.min(targetWidth / width, targetHeight / height);
+                    const scale = Math.min(ratio, 1);
+                    canvas.width = Math.round(width * scale);
+                    canvas.height = Math.round(height * scale);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                }
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const croppedFile = new File([blob], file.name, {
+                            type: file.type || 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(croppedFile);
+                    } else {
+                        reject(new Error('Canvas toBlob failed'));
+                    }
+                }, file.type || 'image/jpeg', 0.9);
+            };
+            img.onerror = () => reject(new Error('Image load failed'));
+            img.src = event.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+};
 import { 
     Settings as SettingsIcon, Save, Image as ImageIcon, CreditCard, QrCode, 
     Building2, MapPin, Hash, Sun, Moon, Palette, UserPlus, Trash2, Edit2, AlertCircle, CheckCircle2 
@@ -200,13 +256,15 @@ const Settings = () => {
     const handleLogoUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const formData = new FormData();
-        formData.append('image', file);
         setUploadingLogo(true);
         try {
+            const processedFile = await resizeAndCropImage(file, 300, 100, 'contain');
+            const formData = new FormData();
+            formData.append('image', processedFile);
             const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setValue('logoUrl', res.data.url, { shouldDirty: true });
         } catch (err) {
+            console.error('Logo upload error:', err);
             alert('Failed to upload logo. Please try again.');
         } finally {
             setUploadingLogo(false);
@@ -216,13 +274,15 @@ const Settings = () => {
     const handleUpiQrUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const formData = new FormData();
-        formData.append('image', file);
         setUploadingUpiQr(true);
         try {
+            const processedFile = await resizeAndCropImage(file, 250, 250, 'contain');
+            const formData = new FormData();
+            formData.append('image', processedFile);
             const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setValue('upiQrUrl', res.data.url, { shouldDirty: true });
         } catch (err) {
+            console.error('QR code upload error:', err);
             alert('Failed to upload UPI QR code image. Please try again.');
         } finally {
             setUploadingUpiQr(false);
@@ -232,13 +292,15 @@ const Settings = () => {
     const handleSignatureUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const formData = new FormData();
-        formData.append('image', file);
         setUploadingSignature(true);
         try {
+            const processedFile = await resizeAndCropImage(file, 300, 100, 'contain');
+            const formData = new FormData();
+            formData.append('image', processedFile);
             const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setValue('signature', res.data.url, { shouldDirty: true });
         } catch (err) {
+            console.error('Signature upload error:', err);
             alert('Failed to upload signature. Please try again.');
         } finally {
             setUploadingSignature(false);
