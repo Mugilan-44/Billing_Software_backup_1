@@ -26,6 +26,18 @@ const formatCustomerAddress = (addr, flatFallback) => {
     return parts.join(', ');
 };
 
+const getDocNumberLabel = (docType) => {
+    switch (docType) {
+        case 'invoice': return 'Invoice No';
+        case 'challan': return 'Challan No';
+        case 'quotation': return 'Reference No';
+        case 'sales-order': return 'Order No';
+        case 'purchase-bill': return 'Bill No';
+        case 'credit-note': return 'Credit Note No';
+        default: return 'No';
+    }
+};
+
 export const generateStandardPDF = async (docTitle, docType, invoice, customer, items, settings, template = 'modern', color = '#2563eb', customFilePath = null) => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -70,8 +82,8 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                 }
                 const leftColBottom = doc.y;
 
-                doc.fillColor('white').font(fontBold).fontSize(22).text(docTitle, 300, 40, { align: 'right', width: 245 });
-                doc.fontSize(10).font(fontRegular).text(`No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.fillColor('white').font(fontBold).fontSize(20).text(docTitle, 300, 40, { align: 'right', width: 245 });
+                doc.fontSize(10).font(fontRegular).text(`${getDocNumberLabel(docType)}: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
                 doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 currentY = Math.max(140, leftColBottom + 15, doc.y + 15);
             } else if (isClassic) {
@@ -106,7 +118,7 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
 
                 // Invoice metadata row
                 doc.fillColor('black').font(fontBold).fontSize(10);
-                doc.text(`${docTitle}: ${invoice.invoiceNumber}`, 50, currentY);
+                doc.text(`${getDocNumberLabel(docType)}: ${invoice.invoiceNumber}`, 50, currentY);
                 doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 350, currentY, { align: 'right', width: 195 });
                 if (invoice.dueDate) {
                     currentY += 15;
@@ -126,8 +138,8 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                 }
                 const leftColBottom = doc.y;
 
-                doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(docTitle, 300, 50, { align: 'right', width: 245 });
-                doc.font(fontRegular).fontSize(9).fillColor('#475569').text(`No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.fillColor('#0f172a').font(fontBold).fontSize(18).text(docTitle, 300, 50, { align: 'right', width: 245 });
+                doc.font(fontRegular).fontSize(9).fillColor('#475569').text(`${getDocNumberLabel(docType)}: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
                 doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 
                 currentY = Math.max(leftColBottom + 15, doc.y + 15, 120);
@@ -157,9 +169,9 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                 const leftColBottom = doc.y;
 
                 // Right side header info
-                doc.font(fontBold).fontSize(22).fillColor(accentColor).text(docTitle, 300, 50, { align: 'right', width: 245 });
+                doc.font(fontBold).fontSize(20).fillColor(accentColor).text(docTitle, 300, 50, { align: 'right', width: 245 });
                 doc.fillColor('#0f172a').font(fontRegular).fontSize(10);
-                doc.text(`${docTitle} No: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
+                doc.text(`${getDocNumberLabel(docType)}: ${invoice.invoiceNumber}`, 300, doc.y + 4, { align: 'right', width: 245 });
                 doc.text(`Date: ${new Date(invoice.date).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
                 if (invoice.dueDate) {
                     doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, 300, doc.y + 2, { align: 'right', width: 245 });
