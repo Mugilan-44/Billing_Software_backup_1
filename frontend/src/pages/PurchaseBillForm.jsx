@@ -876,7 +876,7 @@ const PurchaseBillForm = () => {
                                 {isTaxed && (
                                     <div className="flex flex-col text-slate-650 text-sm gap-1 pt-1">
                                         <div className="flex justify-between">
-                                            <span>GST Total ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                            <span>{taxType === 'GST' ? 'GST Total' : 'Tax Total'} ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
                                             <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
                                         </div>
                                         {taxType === 'GST' && totals.taxTotal > 0 && (

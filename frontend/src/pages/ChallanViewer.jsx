@@ -249,7 +249,7 @@ const ChallanViewer = () => {
                                     <span className="font-semibold text-slate-900">₹{(challan.subtotal || 0).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span>GST Tax</span>
+                                    <span>{challan.taxType === 'GST' ? 'GST Tax' : 'Tax'}</span>
                                     <span className="font-semibold text-slate-900">₹{(challan.taxAmount || 0).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-base text-slate-900">

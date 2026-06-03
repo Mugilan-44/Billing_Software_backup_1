@@ -163,7 +163,7 @@ const QuotationViewer = () => {
                         <span>Sub Total</span>
                         <span className="font-medium text-slate-900">₹{(quote.subTotal || 0).toFixed(2)}</span>
                     </div>
-                    {quote.taxTotal?.cgst !== undefined ? (
+                    {quote.taxType === 'GST' && quote.taxTotal?.cgst !== undefined ? (
                         <div className="flex justify-between text-slate-600">
                             <span>Tax (CGST+SGST)</span>
                             <span>₹{((quote.taxTotal.cgst || 0) + (quote.taxTotal.sgst || 0)).toFixed(2)}</span>
