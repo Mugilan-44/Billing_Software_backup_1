@@ -170,7 +170,7 @@ const QuotationViewer = () => {
                         </div>
                     ) : quote.taxTotal !== undefined ? (
                         <div className="flex justify-between text-slate-600">
-                            <span>Tax Total</span>
+                            <span>{quote.taxType || 'Tax'} Total</span>
                             <span>₹{(quote.taxTotal || 0).toFixed(2)}</span>
                         </div>
                     ) : null}

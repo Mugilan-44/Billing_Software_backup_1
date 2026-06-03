@@ -5,6 +5,7 @@ import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save } from 'l
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickCustomerModal from '../components/QuickCustomerModal';
 import QuickItemModal from '../components/QuickItemModal';
+import BulkItemModal from '../components/BulkItemModal';
 import { AuthContext } from '../context/AuthContext';
 
 const InputRow = ({ label, required, children, helper }) => (
@@ -70,6 +71,7 @@ const QuotationForm = () => {
     const [items, setItems] = useState([
         { itemId: '', name: '', quantity: 1, rate: 0, discount: 0, gstPercentage: 0 }
     ]);
+    const [showBulkModal, setShowBulkModal] = useState(false);
     const [notes, setNotes] = useState('Looking forward for your business.');
     const [termsAndConditions, setTermsAndConditions] = useState('only pay after the payment');
     const [includeTerms, setIncludeTerms] = useState(true);
@@ -321,6 +323,7 @@ const QuotationForm = () => {
             const updatedItems = [...items];
             updatedItems[pendingItemIndex].gstPercentage = rateVal;
             setItems(updatedItems);
+            setTaxType(newTaxName);
         } else {
             setTaxType(newTaxName);
             setTaxRate(rateVal);
@@ -337,6 +340,27 @@ const QuotationForm = () => {
     const handleAddItemRow = () => {
         setItems([...items, { itemId: '', name: '', quantity: 1, rate: 0, discount: 0, gstPercentage: 0 }]);
     };
+
+    const handleAddBulkItems = (selected) => {
+        let updatedItems = [...items];
+        if (updatedItems.length === 1 && !updatedItems[0].itemId && updatedItems[0].quantity === 1 && updatedItems[0].rate === 0) {
+            updatedItems = [];
+        }
+        const mapped = selected.map(item => {
+            const catalogItem = catalogItems.find(c => c._id === item.itemId);
+            return {
+                itemId: item.itemId,
+                name: catalogItem?.name || '',
+                quantity: item.quantity,
+                rate: item.rate,
+                discount: 0,
+                gstPercentage: item.taxGst
+            };
+        });
+        setItems([...updatedItems, ...mapped]);
+    };
+
+
 
     const removeItem = (index) => {
         if (items.length > 1) {
@@ -725,39 +749,7 @@ const QuotationForm = () => {
                                 </InputRow>
                             )}
 
-                            {useProductSpecificTax && (
-                                <InputRow label="Tax System" helper="Select the tax system type">
-                                    <div className="flex items-center gap-3">
-                                        <select
-                                            className="input-field max-w-[250px]"
-                                            value={taxType}
-                                            onChange={(e) => {
-                                                if (e.target.value === 'ADD_NEW') {
-                                                    setPendingItemIndex(-1);
-                                                    setOpenTaxModal(true);
-                                                } else {
-                                                    setTaxType(e.target.value);
-                                                }
-                                            }}
-                                        >
-                                            <option value="GST">GST</option>
-                                            <option value="VAT">VAT</option>
-                                            <option value="Sales Tax">Sales Tax</option>
-                                            <option value="ADD_NEW" className="text-blue-600 font-semibold">+ Add New Tax...</option>
-                                        </select>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setPendingItemIndex(-1);
-                                                setOpenTaxModal(true);
-                                            }}
-                                            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl border border-blue-200 whitespace-nowrap animate-in fade-in"
-                                        >
-                                            + Add Preset
-                                        </button>
-                                    </div>
-                                </InputRow>
-                            )}
+
                         </>
                     )}
                 </div>
@@ -850,7 +842,12 @@ const QuotationForm = () => {
                                                             setPendingItemIndex(idx);
                                                             setOpenTaxModal(true);
                                                         } else {
-                                                            handleItemChange(idx, 'gstPercentage', e.target.value);
+                                                            const rateVal = Number(e.target.value);
+                                                            handleItemChange(idx, 'gstPercentage', rateVal);
+                                                            const matched = taxSystems.find(ts => ts.rate === rateVal && ts.status === 'Active');
+                                                            if (matched) {
+                                                                setTaxType(matched.name);
+                                                            }
                                                         }
                                                     }}
                                                 >
@@ -888,7 +885,7 @@ const QuotationForm = () => {
                             <Plus size={14} strokeWidth={3} /> Add Line Item
                         </button>
                         <div className="h-4 w-px bg-slate-200"></div>
-                        <button type="button" className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
+                        <button type="button" onClick={() => setShowBulkModal(true)} className="text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider">
                             Add Items in Bulk
                         </button>
                     </div>
@@ -1221,6 +1218,13 @@ const QuotationForm = () => {
                     </div>
                 </div>
             )}
+
+            <BulkItemModal
+                isOpen={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                catalogItems={catalogItems}
+                onAddSelected={handleAddBulkItems}
+            />
         </div>
     );
 };

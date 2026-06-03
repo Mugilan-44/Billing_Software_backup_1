@@ -130,6 +130,7 @@ const ChallanForm = () => {
             const updatedItems = [...items];
             updatedItems[pendingItemIndex].gstPercent = rateVal;
             setItems(updatedItems);
+            setTaxType(newTaxName);
         } else {
             setTaxType(newTaxName);
             setTaxRate(rateVal);
@@ -713,39 +714,7 @@ const ChallanForm = () => {
                                 </InputRow>
                             )}
 
-                            {useProductSpecificTax && (
-                                <InputRow label="Tax System" helper="Select the tax system type">
-                                    <div className="flex items-center gap-3">
-                                        <select
-                                            className="input-field max-w-[250px]"
-                                            value={taxType}
-                                            onChange={(e) => {
-                                                if (e.target.value === 'ADD_NEW') {
-                                                    setPendingItemIndex(-1);
-                                                    setOpenTaxModal(true);
-                                                } else {
-                                                    setTaxType(e.target.value);
-                                                }
-                                            }}
-                                        >
-                                            <option value="GST">GST</option>
-                                            <option value="VAT">VAT</option>
-                                            <option value="Sales Tax">Sales Tax</option>
-                                            <option value="ADD_NEW" className="text-blue-600 font-semibold">+ Add New Tax...</option>
-                                        </select>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setPendingItemIndex(-1);
-                                                setOpenTaxModal(true);
-                                            }}
-                                            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl border border-blue-200 whitespace-nowrap animate-in fade-in"
-                                        >
-                                            + Add Preset
-                                        </button>
-                                    </div>
-                                </InputRow>
-                            )}
+
                         </>
                     )}
                 </div>
@@ -868,7 +837,12 @@ const ChallanForm = () => {
                                                             setPendingItemIndex(idx);
                                                             setOpenTaxModal(true);
                                                         } else {
-                                                            handleItemChange(idx, 'gstPercent', e.target.value);
+                                                            const rateVal = Number(e.target.value);
+                                                            handleItemChange(idx, 'gstPercent', rateVal);
+                                                            const matched = taxSystems.find(ts => ts.rate === rateVal && ts.status === 'Active');
+                                                            if (matched) {
+                                                                setTaxType(matched.name);
+                                                            }
                                                         }
                                                     }}
                                                 >

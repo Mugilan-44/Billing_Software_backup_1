@@ -142,7 +142,7 @@ const PurchaseBillViewer = () => {
         <div className="max-w-6xl mx-auto pb-20 px-4">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-8 gap-6 no-print">
                 <div className="flex items-center gap-5">
-                    <button onClick={() => navigate('/purchase-bills')} className="group p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm">
+                    <button onClick={() => navigate('/purchase-bills')} className="group p-3 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
@@ -157,31 +157,31 @@ const PurchaseBillViewer = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <button onClick={() => navigate(`/purchase-bills/${bill._id}/edit`)} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Edit Purchase Bill">
+                    <button onClick={() => navigate(`/purchase-bills/${bill._id}/edit`)} className="p-3 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Edit Purchase Bill">
                         <Edit size={20} />
                     </button>
 
-                    <button onClick={handleDeleteBill} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Delete Purchase Bill">
+                    <button onClick={handleDeleteBill} className="p-3 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Delete Purchase Bill">
                         <Trash2 size={20} />
                     </button>
 
-                    <button onClick={() => window.print()} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Print">
+                    <button onClick={() => window.print()} className="p-3 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Print">
                         <Printer size={20} />
                     </button>
 
-                    <button onClick={handleCopyDetails} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Copy Details">
+                    <button onClick={handleCopyDetails} className="p-3 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Copy Details">
                         <Copy size={20} />
                     </button>
 
-                    <button onClick={openEmailModal} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Send Email">
+                    <button onClick={openEmailModal} className="p-3 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Send Email">
                         <Mail size={20} />
                     </button>
 
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-emerald-600 transition-all">
+                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-emerald-600 transition-all">
                         <Share2 size={18} /> Share
                     </button>
 
-                    <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all">
+                    <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-blue-700 transition-all">
                         <Download size={18} /> {downloading ? 'Downloading...' : 'Download'}
                     </button>
                 </div>
@@ -245,7 +245,7 @@ const PurchaseBillViewer = () => {
                                 <span className="font-medium text-slate-900">₹{(bill.subTotal || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-slate-600">
-                                <span>Tax Total</span>
+                                <span>{bill.taxType === 'GST' ? 'GST Total' : `${bill.taxType || 'Tax'} Total`}</span>
                                 <span>₹{(bill.taxTotal || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">

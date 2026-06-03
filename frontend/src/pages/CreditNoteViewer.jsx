@@ -158,10 +158,9 @@ const CreditNoteViewer = () => {
 
     return (
         <div className="max-w-6xl mx-auto pb-20 px-4">
-            {/* ── Toolbar ── */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-6 gap-4 no-print">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/credit-notes')} className="group p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-red-600 hover:border-red-200 transition-all shadow-sm">
+                    <button onClick={() => navigate('/credit-notes')} className="group p-3 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-600 hover:border-red-200 transition-all shadow-sm">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
@@ -180,14 +179,14 @@ const CreditNoteViewer = () => {
                     <div className="relative">
                         <button
                             onClick={() => setShowColors(v => !v)}
-                            className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all flex items-center gap-2"
+                            className="p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-300 transition-all flex items-center gap-2"
                             title="Change Color Theme"
                         >
                             <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: accentColor }}></div>
                             <Palette size={16} className="text-slate-500" />
                         </button>
                         {showColors && (
-                            <div className="absolute right-0 top-12 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 flex gap-2">
+                            <div className="absolute right-0 top-12 bg-white border border-slate-200 rounded-lg shadow-xl p-3 z-50 flex gap-2">
                                 {COLOR_THEMES.map(t => (
                                     <button
                                         key={t.value}
@@ -203,22 +202,22 @@ const CreditNoteViewer = () => {
 
                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
-                    <button onClick={() => window.print()} className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Print">
+                    <button onClick={() => window.print()} className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Print">
                         <Printer size={18} />
                     </button>
-                    <button onClick={handleCopyDetails} className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Copy Details">
+                    <button onClick={handleCopyDetails} className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Copy Details">
                         <Copy size={18} />
                     </button>
-                    <button onClick={openEmailModal} className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Send Email">
+                    <button onClick={openEmailModal} className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Send Email">
                         <Mail size={18} />
                     </button>
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg hover:bg-emerald-600 transition-all">
+                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-emerald-600 transition-all">
                         <Share2 size={16} /> Share
                     </button>
                     <button
                         onClick={handleDownloadPDF}
                         disabled={downloading}
-                        className="flex items-center gap-2 px-4 py-2.5 text-white rounded-xl font-bold text-sm shadow-lg transition-all disabled:opacity-70"
+                        className="flex items-center gap-2 px-4 py-2.5 text-white rounded-lg font-medium text-sm shadow-sm transition-all disabled:opacity-70"
                         style={{ backgroundColor: accentColor }}
                     >
                         {downloading
@@ -325,7 +324,7 @@ const CreditNoteViewer = () => {
                             </div>
                             {cn.taxTotal > 0 && (
                                 <div className="flex justify-between text-slate-600">
-                                    <span>Tax Total</span>
+                                    <span>{cn.taxType === 'GST' ? 'GST Total' : `${cn.taxType || 'Tax'} Total`}</span>
                                     <span className="font-medium text-slate-900">₹{fmt(cn.taxTotal)}</span>
                                 </div>
                             )}

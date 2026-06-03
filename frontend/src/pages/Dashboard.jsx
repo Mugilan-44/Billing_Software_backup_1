@@ -357,17 +357,14 @@ const Dashboard = () => {
 
     const currentChartData = dynamicChartData?.[chartGranularity] || { labels: [], sales: [], receipts: [], expenses: [] };
 
-    const activePrimary500 = getComputedStyle(document.documentElement).getPropertyValue('--primary-500').trim() || '#3b82f6';
-    const activePrimary600 = getComputedStyle(document.documentElement).getPropertyValue('--primary-600').trim() || '#2563eb';
-
     const doubleBarData = {
         labels: currentChartData.labels,
         datasets: [
             {
                 label: 'Sales',
                 data: currentChartData.sales,
-                backgroundColor: activePrimary500,
-                hoverBackgroundColor: activePrimary600,
+                backgroundColor: '#3b82f6', // blue-500
+                hoverBackgroundColor: '#2563eb',
                 borderRadius: 5,
             },
             {

@@ -201,11 +201,16 @@ export const TemplateModern = ({ invoice, customer, settings, color, printRef })
                 </div>
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-slate-600"><span>Sub Total</span><span className="font-medium text-slate-900">₹{fmt(invoice.subTotal)}</span></div>
-                    {tax.cgst > 0 && <div className="flex justify-between text-slate-600"><span>CGST</span><span className="font-medium">₹{fmt(tax.cgst)}</span></div>}
-                    {tax.sgst > 0 && <div className="flex justify-between text-slate-600"><span>SGST</span><span className="font-medium">₹{fmt(tax.sgst)}</span></div>}
-                    {tax.igst > 0 && <div className="flex justify-between text-slate-600"><span>IGST</span><span className="font-medium">₹{fmt(tax.igst)}</span></div>}
-                    {tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && tax.totalTax > 0 && (
-                        <div className="flex justify-between text-slate-600"><span>Tax</span><span className="font-medium">₹{fmt(tax.totalTax)}</span></div>
+                    {invoice.taxType === 'GST' ? (
+                        <>
+                            {tax.cgst > 0 && <div className="flex justify-between text-slate-600"><span>CGST</span><span className="font-medium">₹{fmt(tax.cgst)}</span></div>}
+                            {tax.sgst > 0 && <div className="flex justify-between text-slate-600"><span>SGST</span><span className="font-medium">₹{fmt(tax.sgst)}</span></div>}
+                            {tax.igst > 0 && <div className="flex justify-between text-slate-600"><span>IGST</span><span className="font-medium">₹{fmt(tax.igst)}</span></div>}
+                        </>
+                    ) : (
+                        tax.totalTax > 0 && (
+                            <div className="flex justify-between text-slate-600"><span>{invoice.taxType || 'Tax'} Total</span><span className="font-medium">₹{fmt(tax.totalTax)}</span></div>
+                        )
                     )}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-red-600">
@@ -292,10 +297,15 @@ export const TemplateClassic = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end mb-8">
                 <div className="w-1/2 border border-slate-400">
                     <div className="flex justify-between p-2 border-b border-slate-300 text-sm"><span>Sub Total:</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {tax.cgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>CGST:</span><span>₹{fmt(tax.cgst)}</span></div>}
-                    {tax.sgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>SGST:</span><span>₹{fmt(tax.sgst)}</span></div>}
-                    {tax.igst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>IGST:</span><span>₹{fmt(tax.igst)}</span></div>}
-                    {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>Tax:</span><span>₹{fmt(tax.totalTax)}</span></div>}
+                    {invoice.taxType === 'GST' ? (
+                        <>
+                            {tax.cgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>CGST:</span><span>₹{fmt(tax.cgst)}</span></div>}
+                            {tax.sgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>SGST:</span><span>₹{fmt(tax.sgst)}</span></div>}
+                            {tax.igst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>IGST:</span><span>₹{fmt(tax.igst)}</span></div>}
+                        </>
+                    ) : (
+                        tax.totalTax > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>{invoice.taxType || 'Tax'} Total:</span><span>₹{fmt(tax.totalTax)}</span></div>
+                    )}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between p-2 border-b border-slate-200 text-sm text-red-600"><span>Discount:</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -426,10 +436,15 @@ export const TemplateProfessional = ({ invoice, customer, settings, color, print
                     </div>
                     <div className="w-1/3 space-y-3">
                         <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span className="font-bold text-slate-900">₹{fmt(invoice.subTotal)}</span></div>
-                        {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span className="font-bold">₹{fmt(tax.cgst)}</span></div>}
-                        {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span className="font-bold">₹{fmt(tax.sgst)}</span></div>}
-                        {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span className="font-bold">₹{fmt(tax.igst)}</span></div>}
-                        {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between text-sm text-slate-500"><span>Tax</span><span className="font-bold">₹{fmt(tax.totalTax)}</span></div>}
+                        {invoice.taxType === 'GST' ? (
+                            <>
+                                {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span className="font-bold">₹{fmt(tax.cgst)}</span></div>}
+                                {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span className="font-bold">₹{fmt(tax.sgst)}</span></div>}
+                                {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span className="font-bold">₹{fmt(tax.igst)}</span></div>}
+                            </>
+                        ) : (
+                            tax.totalTax > 0 && <div className="flex justify-between text-sm text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span className="font-bold">₹{fmt(tax.totalTax)}</span></div>
+                        )}
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between text-sm text-red-600"><span>Discount</span><span className="font-bold">-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                         )}
@@ -514,10 +529,15 @@ export const TemplateElegant = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end">
                 <div className="w-72 space-y-2">
                     <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                    {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                    {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                    {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between text-sm text-slate-500"><span>Tax</span><span>₹{fmt(tax.totalTax)}</span></div>}
+                    {invoice.taxType === 'GST' ? (
+                        <>
+                            {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
+                            {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
+                            {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
+                        </>
+                    ) : (
+                        tax.totalTax > 0 && <div className="flex justify-between text-sm text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
+                    )}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-sm text-red-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -601,10 +621,15 @@ export const TemplateMinimal = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end mb-8">
                 <div className="w-64 space-y-2 text-sm">
                     <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                    {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                    {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                    {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between text-slate-500"><span>Tax</span><span>₹{fmt(tax.totalTax)}</span></div>}
+                    {invoice.taxType === 'GST' ? (
+                        <>
+                            {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
+                            {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
+                            {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
+                        </>
+                    ) : (
+                        tax.totalTax > 0 && <div className="flex justify-between text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
+                    )}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-slate-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -719,10 +744,15 @@ export const TemplateBold = ({ invoice, customer, settings, color, printRef }) =
                     </div>
                     <div className="text-right space-y-1 text-sm min-w-56">
                         <div className="flex justify-between gap-8 text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                        {tax.cgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                        {tax.sgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                        {tax.igst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                        {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between gap-8 text-slate-500"><span>Tax</span><span>₹{fmt(tax.totalTax)}</span></div>}
+                        {invoice.taxType === 'GST' ? (
+                            <>
+                                {tax.cgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
+                                {tax.sgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
+                                {tax.igst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
+                            </>
+                        ) : (
+                            tax.totalTax > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
+                        )}
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between gap-8 text-red-600"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                         )}
@@ -808,7 +838,7 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                             <th className="border border-white/20 px-2 py-2 text-right" colSpan={1}>Rate</th>
                             <th className="border border-white/20 px-2 py-2 text-right" colSpan={1}>Taxable Val.</th>
                             {isIGST ? (
-                                <th className="border border-white/20 px-2 py-2 text-center" colSpan={2}>IGST</th>
+                                <th className="border border-white/20 px-2 py-2 text-center" colSpan={2}>{invoice.taxType || 'IGST'}</th>
                             ) : (
                                 <><th className="border border-white/20 px-2 py-2 text-center" colSpan={2}>CGST</th>
                                 <th className="border border-white/20 px-2 py-2 text-center" colSpan={2}>SGST</th></>
@@ -861,7 +891,7 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                             <td className="border border-slate-300 px-2 py-2 text-right" colSpan={5}>Total</td>
                             <td className="border border-slate-300 px-2 py-2 text-right">₹{fmt(invoice.subTotal)}</td>
                             {isIGST ? (
-                                <><td className="border border-slate-300 px-2 py-2"></td><td className="border border-slate-300 px-2 py-2 text-right">₹{fmt(tax.igst)}</td></>
+                                <><td className="border border-slate-300 px-2 py-2"></td><td className="border border-slate-300 px-2 py-2 text-right">₹{fmt(tax.igst || tax.totalTax)}</td></>
                             ) : (
                                 <><td className="border border-slate-300 px-2 py-2"></td><td className="border border-slate-300 px-2 py-2 text-right">₹{fmt(tax.cgst)}</td>
                                 <td className="border border-slate-300 px-2 py-2"></td><td className="border border-slate-300 px-2 py-2 text-right">₹{fmt(tax.sgst)}</td></>
@@ -897,10 +927,15 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                                 <tr><td className="px-3 py-1 text-red-600 border-b border-r border-slate-200">Discount</td><td className="px-3 py-1 text-red-600 border-b border-slate-200">-₹{fmt(invoice.discount || invoice.discountAmount)}</td></tr>
                             )}
                             <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">Taxable Amount</td><td className="px-3 py-1 font-bold border-b border-slate-200">₹{fmt(invoice.taxableAmount || invoice.subTotal - (invoice.discount || 0))}</td></tr>
-                            {tax.cgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">CGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.cgst)}</td></tr>}
-                            {tax.sgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">SGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.sgst)}</td></tr>}
-                            {tax.igst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">IGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.igst)}</td></tr>}
-                            {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">Tax</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.totalTax)}</td></tr>}
+                            {invoice.taxType === 'GST' ? (
+                                <>
+                                    {tax.cgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">CGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.cgst)}</td></tr>}
+                                    {tax.sgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">SGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.sgst)}</td></tr>}
+                                    {tax.igst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">IGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.igst)}</td></tr>}
+                                </>
+                            ) : (
+                                tax.totalTax > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">{invoice.taxType || 'Tax'} Total</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.totalTax)}</td></tr>
+                            )}
                             {invoice.amountPaid > 0 && <tr><td className="px-3 py-1 text-emerald-600 border-b border-r border-slate-200">Amount Received</td><td className="px-3 py-1 text-emerald-600 border-b border-slate-200">₹{fmt(invoice.amountPaid)}</td></tr>}
                             <tr className="font-black text-white" style={{ backgroundColor: color }}><td className="px-3 py-2 border-r border-white/20">Total Amount</td><td className="px-3 py-2">₹{fmt(invoice.grandTotal)}</td></tr>
                         </tbody>
@@ -1032,10 +1067,15 @@ export const TemplateVibrant = ({ invoice, customer, settings, color, printRef }
                     <div className="text-right p-6 rounded-2xl min-w-64" style={{ backgroundColor: theme.light, border: `1px solid ${theme.border}` }}>
                         <div className="space-y-1 text-sm mb-3">
                             <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                            {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                            {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                            {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                            {tax.totalTax > 0 && tax.cgst === 0 && tax.sgst === 0 && tax.igst === 0 && <div className="flex justify-between text-slate-500"><span>Tax</span><span>₹{fmt(tax.totalTax)}</span></div>}
+                            {invoice.taxType === 'GST' ? (
+                                <>
+                                    {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
+                                    {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
+                                    {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
+                                </>
+                            ) : (
+                                tax.totalTax > 0 && <div className="flex justify-between text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
+                            )}
                         </div>
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between text-slate-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
