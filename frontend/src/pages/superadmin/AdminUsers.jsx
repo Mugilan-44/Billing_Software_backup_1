@@ -108,7 +108,7 @@ const AdminUsers = () => {
             });
             setShowCreateModal(false);
         } catch (e) {
-            setError(e.response?.data?.message || 'Failed to register admin account');
+            setError(e.response?.data?.message || 'Failed to register company account');
         } finally {
             setSaving(false);
         }
@@ -125,7 +125,7 @@ const AdminUsers = () => {
             setShowEditModal(false);
             setEditingAdmin(null);
         } catch (e) {
-            setEditError(e.response?.data?.message || 'Failed to update admin account');
+            setEditError(e.response?.data?.message || 'Failed to update company account');
         } finally {
             setSavingEdit(false);
         }
@@ -161,7 +161,7 @@ const AdminUsers = () => {
     };
 
     const handleDeleteAdmin = async (id) => {
-        if (window.confirm('Are you sure you want to permanently delete this admin account, company, and all associated tenant data? This cannot be undone.')) {
+        if (window.confirm('Are you sure you want to permanently delete this company account and all associated tenant data? This cannot be undone.')) {
             try {
                 await axios.delete(`/api/super-admin/users/${id}`, authHeader());
                 fetchData();
@@ -217,9 +217,9 @@ const AdminUsers = () => {
     });
 
     const cards = [
-        { label: 'Total Admins', value: stats?.totalAdmins ?? 0, icon: <Users size={20} />, color: 'bg-slate-50 border-slate-200/60 text-[#1d1d1f]' },
-        { label: 'Active Admins', value: stats?.activeAdmins ?? 0, icon: <CheckCircle size={20} />, color: 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' },
-        { label: 'Deactive Admins', value: stats?.deactiveAdmins ?? 0, icon: <ShieldAlert size={20} />, color: 'bg-[#ff3b30]/10 border-[#ff3b30]/20 text-[#ff3b30]' },
+        { label: 'Total Companies', value: stats?.totalAdmins ?? 0, icon: <Users size={20} />, color: 'bg-slate-50 border-slate-200/60 text-[#1d1d1f]' },
+        { label: 'Active Companies', value: stats?.activeAdmins ?? 0, icon: <CheckCircle size={20} />, color: 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' },
+        { label: 'Deactive Companies', value: stats?.deactiveAdmins ?? 0, icon: <ShieldAlert size={20} />, color: 'bg-[#ff3b30]/10 border-[#ff3b30]/20 text-[#ff3b30]' },
     ];
 
     const getSubscriptionProgress = (sub) => {
@@ -259,12 +259,12 @@ const AdminUsers = () => {
             {/* Header & Primary Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-200 pb-8">
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-[#1d1d1f] sm:text-5xl">Prolync Admin Control</h1>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-[#1d1d1f] sm:text-5xl">Prolync Company Control</h1>
                     <p className="text-[#86868b] text-base mt-2 font-medium">Unified license manager, client deployments, and subscription controls.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white text-sm font-bold transition-all shadow-md shadow-[#0071e3]/10 transform active:scale-95">
-                        <Plus size={16} /> Create Admin
+                        <Plus size={16} /> Add Company
                     </button>
                 </div>
             </div>
@@ -290,7 +290,7 @@ const AdminUsers = () => {
                     <div>
                         <h2 className="text-xl font-bold text-[#1d1d1f] tracking-tight flex items-center gap-2">
                             <Building2 size={20} className="text-[#0071e3]" />
-                            Prolync Admin Control <span className="bg-[#f5f5f7] text-slate-600 text-xs px-3 py-1 rounded-full font-bold ml-1">{admins.length}</span>
+                            Prolync Company Control <span className="bg-[#f5f5f7] text-slate-600 text-xs px-3 py-1 rounded-full font-bold ml-1">{admins.length}</span>
                         </h2>
                     </div>
                     <div className="relative max-w-[280px] w-full">
@@ -315,7 +315,7 @@ const AdminUsers = () => {
                             {loading ? (
                                 <tr><td colSpan={5} className="px-6 py-16 text-center text-[#86868b] font-medium">Loading control dashboard...</td></tr>
                             ) : sortedAdmins.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-16 text-center text-[#86868b] font-medium">No admin accounts found matching your search.</td></tr>
+                                <tr><td colSpan={5} className="px-6 py-16 text-center text-[#86868b] font-medium">No company accounts found matching your search.</td></tr>
                             ) : sortedAdmins.map(a => {
                                 const subInfo = getSubscriptionProgress(a.subscription);
                                 return (
@@ -391,7 +391,7 @@ const AdminUsers = () => {
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div>
-                                <h3 className="text-xl font-bold tracking-tight text-[#1d1d1f]">Create New Admin Account</h3>
+                                <h3 className="text-xl font-bold tracking-tight text-[#1d1d1f]">Create New Company Account</h3>
                                 <p className="text-[#86868b] text-xs mt-1 font-semibold">Register a fresh client company and generate their admin credentials.</p>
                             </div>
                             <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-[#1d1d1f] p-2 rounded-full hover:bg-slate-100 transition-all">
@@ -507,7 +507,7 @@ const AdminUsers = () => {
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div>
-                                <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Edit Admin Details</h3>
+                                <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Edit Company Details</h3>
                                 <p className="text-[#86868b] text-xs mt-1 font-semibold">Modify information, reset password, or renew subscription period.</p>
                             </div>
                             <button onClick={() => { setShowEditModal(false); setEditingAdmin(null); }} className="text-slate-400 hover:text-[#1d1d1f] p-2 rounded-full hover:bg-slate-100 transition-all">

@@ -4,6 +4,7 @@ import axios from '../utils/api';
 import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Mail, Printer, Palette, Copy, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
 // Color themes - credit notes default to red/orange tones or general settings
 export const COLOR_THEMES = [
@@ -234,7 +235,7 @@ const CreditNoteViewer = () => {
                     <div className="flex justify-between items-start pb-8 mb-8" style={{ borderBottom: `3px solid ${accentColor}` }}>
                         <div>
                             {settings?.logoUrl
-                                ? <img src={settings.logoUrl} alt="Logo" className="h-16 object-contain mb-3" />
+                                ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-16 object-contain mb-3" />
                                 : <h1 className="text-2xl font-black mb-2" style={{ color: accentColor }}>{settings?.companyName || 'Company'}</h1>
                             }
                             {settings?.logoUrl && <h2 className="text-lg font-bold text-slate-800 mb-1">{settings?.companyName}</h2>}
@@ -322,12 +323,12 @@ const CreditNoteViewer = () => {
                                 <span>Sub Total</span>
                                 <span className="font-medium text-slate-900">₹{fmt(cn.subTotal || cn.amount)}</span>
                             </div>
-                            {cn.taxTotal > 0 && (
-                                <div className="flex justify-between text-slate-600">
-                                    <span>{cn.taxType === 'GST' ? 'GST Total' : `${cn.taxType || 'Tax'} Total`}</span>
-                                    <span className="font-medium text-slate-900">₹{fmt(cn.taxTotal)}</span>
+                            {getViewerTaxBreakdown(cn).map((row, idx) => (
+                                <div key={idx} className="flex justify-between text-slate-600">
+                                    <span>{row.label}</span>
+                                    <span className="font-medium text-slate-900">₹{fmt(row.amount)}</span>
                                 </div>
-                            )}
+                            ))}
                             <div className="flex justify-between text-lg font-bold border-t border-slate-200 pt-3 mt-3" style={{ color: accentColor }}>
                                 <span>Total Credit</span>
                                 <span>₹{fmt(cn.amount)}</span>
@@ -369,7 +370,7 @@ const CreditNoteViewer = () => {
                                 <div className="text-center">
                                     <div className="border border-slate-200 rounded-lg p-2 w-48 h-20 flex items-center justify-center bg-slate-50 mb-2">
                                         {settings?.signature ? (
-                                            <img src={settings.signature} alt="Signature" className="max-h-full max-w-full object-contain" />
+                                            <img src={getImageUrl(settings.signature)} alt="Signature" className="max-h-full max-w-full object-contain" />
                                         ) : (
                                             <span className="text-xs text-slate-400">Signature</span>
                                         )}

@@ -375,6 +375,45 @@ const SalesOrderForm = () => {
         });
     }, [items, discount, isTaxed, taxRate, useProductSpecificTax, tdsTcsType, tdsPercentage, tcsPercentage, adjustment]);
 
+    const getProductSpecificTaxBreakdown = () => {
+        if (!isTaxed || !useProductSpecificTax) return [];
+        const breakdown = {};
+        
+        const savedSystems = localStorage.getItem('invoice_tax_systems');
+        let taxSystems = [
+            { name: 'Commission or Brokerage', rate: 2 },
+            { name: 'Dividend', rate: 10 },
+            { name: 'GST', rate: 18 },
+            { name: 'Other Interest than securities', rate: 10 },
+            { name: 'Payment of contractors for Others', rate: 2 },
+            { name: 'Payment of contractors HUF/Indiv', rate: 1 },
+            { name: 'Technical Fees (2%)', rate: 2 }
+        ];
+        if (savedSystems) {
+            try { taxSystems = JSON.parse(savedSystems); } catch (e) {}
+        }
+
+        items.forEach(i => {
+            if (i.itemId) {
+                const amount = (i.quantity || 0) * (i.rate || 0);
+                const taxRate = Number(i.gstPercentage || 0);
+                if (taxRate <= 0) return;
+
+                const taxAmount = amount * (taxRate / 100);
+
+                const matched = taxSystems.find(ts => ts.rate === taxRate);
+                const taxName = matched ? matched.name : (taxType !== 'GST' ? taxType : 'Tax');
+                const label = `${taxName} (${taxRate}%)`;
+
+                breakdown[label] = (breakdown[label] || 0) + taxAmount;
+            }
+        });
+
+        return Object.entries(breakdown)
+            .filter(([_, amt]) => amt > 0)
+            .map(([label, amount]) => ({ label, amount }));
+    };
+
     const handleAddItem = () => {
         if (catalogItems.length === 0) return;
         const defaultItem = catalogItems[0];
@@ -644,7 +683,7 @@ const SalesOrderForm = () => {
                     </InputRow>
 
                     {taxSystemMode === 'OVERALL' && (
-                        <InputRow label="Tax Setting" helper="Choose whether to record this order with or without tax">
+                        <InputRow label="Tax Setting" helper="Choose whether to record this order as Tax or Tax Free">
                             <div className="flex items-center gap-4">
                                 <button
                                     type="button"
@@ -654,7 +693,7 @@ const SalesOrderForm = () => {
                                     }}
                                     className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                                 >
-                                    With Tax
+                                    Tax
                                 </button>
                                 <button
                                     type="button"
@@ -663,7 +702,7 @@ const SalesOrderForm = () => {
                                     }}
                                     className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${!isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                                 >
-                                    Without Tax
+                                    Tax Free
                                 </button>
                             </div>
                         </InputRow>
@@ -913,10 +952,19 @@ const SalesOrderForm = () => {
                                 </div>
                                 {isTaxed && (
                                     <div className="flex flex-col text-slate-650 text-sm gap-1 pt-1">
-                                        <div className="flex justify-between">
-                                            <span>{taxType === 'GST' ? 'GST Total' : 'Tax Total'} ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
-                                            <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
-                                        </div>
+                                        {useProductSpecificTax && taxType !== 'GST' ? (
+                                            getProductSpecificTaxBreakdown().map((row, idx) => (
+                                                <div key={idx} className="flex justify-between">
+                                                    <span>{row.label}</span>
+                                                    <span className="text-slate-900 font-bold">₹{row.amount.toFixed(2)}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex justify-between">
+                                                <span>{taxType === 'GST' ? 'GST Total' : 'Tax Total'} ({taxType}{!useProductSpecificTax ? ` ${taxRate}%` : ' (Product Specific)'})</span>
+                                                <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
+                                            </div>
+                                        )}
                                         {taxType === 'GST' && totals.taxTotal > 0 && (
                                             <div className="text-right text-[11px] font-semibold text-slate-550 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
                                                 {getGstSummaryDisplay()}

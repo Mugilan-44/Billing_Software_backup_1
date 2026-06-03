@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from '../utils/api';
 import { Download, FileText, CheckCircle } from 'lucide-react';
+import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -74,7 +75,7 @@ const PublicInvoice = () => {
                     <div className="flex justify-between items-start border-b border-gray-100 pb-8 mb-8">
                         <div>
                             {settings?.logoUrl ? (
-                                <img src={`${settings.logoUrl}`} alt="Company Logo" className="h-16 object-contain mb-4" />
+                                <img src={getImageUrl(settings.logoUrl)} alt="Company Logo" className="h-16 object-contain mb-4" />
                             ) : (
                                 <h1 className="text-2xl font-black text-gray-900 mb-2">{settings?.companyName || 'Transport Company'}</h1>
                             )}
@@ -173,12 +174,12 @@ const PublicInvoice = () => {
                                     <span className="font-medium">-{settings?.currency?.symbol || '₹'}{(invoice.discount || invoice.discountAmount).toFixed(2)}</span>
                                 </div>
                             )}
-                            {((invoice.taxAmount ?? invoice.taxTotal?.totalTax ?? (invoice.cgst + invoice.sgst) ?? 0) > 0) && (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Total Value Added Tax (GST)</span>
-                                    <span className="font-medium text-gray-900">{settings?.currency?.symbol || '₹'}{(invoice.taxAmount ?? invoice.taxTotal?.totalTax ?? (invoice.cgst + invoice.sgst) ?? 0).toFixed(2)}</span>
+                            {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                                <div key={idx} className="flex justify-between text-gray-600">
+                                    <span>{row.label}</span>
+                                    <span className="font-medium text-gray-900">{settings?.currency?.symbol || '₹'}{row.amount.toFixed(2)}</span>
                                 </div>
-                            )}
+                            ))}
                             {invoice.roundOff !== 0 && (
                                 <div className="flex justify-between text-gray-600">
                                     <span>Round Off</span>

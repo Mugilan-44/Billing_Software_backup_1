@@ -5,6 +5,7 @@ import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { useToast } from '../context/ToastContext';
+import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -109,7 +110,7 @@ const QuotationViewer = () => {
             <div className="flex justify-between items-start border-b border-slate-100 pb-8 mb-8">
                 <div>
                     {settings?.logoUrl ? (
-                        <img src={`${settings.logoUrl}`} alt="Logo" className="h-16 object-contain mb-4" />
+                        <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-16 object-contain mb-4" />
                     ) : (
                         <h1 className="text-2xl font-black text-slate-900 mb-2">{settings?.companyName || 'Transport Company'}</h1>
                     )}
@@ -118,7 +119,7 @@ const QuotationViewer = () => {
                 </div>
                 <div className="text-right">
                     <h2 className="text-4xl font-black text-blue-600 tracking-tight uppercase mb-4">Quotation</h2>
-                    <p className="text-slate-500 text-sm mb-1">Quote No: <span className="font-bold text-slate-900">{quote.quoteNumber}</span></p>
+                    <p className="text-slate-500 text-sm mb-1">Reference No: <span className="font-bold text-slate-900">{quote.quoteNumber}</span></p>
                     <p className="text-slate-500 text-sm mb-1">Date: <span className="font-medium text-slate-900">{new Date(quote.createdAt).toLocaleDateString()}</span></p>
                     <p className="text-slate-500 text-sm">Valid Till: <span className="font-medium text-amber-600">{new Date(quote.validityDate || quote.validUntil).toLocaleDateString()}</span></p>
                 </div>
@@ -163,17 +164,12 @@ const QuotationViewer = () => {
                         <span>Sub Total</span>
                         <span className="font-medium text-slate-900">₹{(quote.subTotal || 0).toFixed(2)}</span>
                     </div>
-                    {quote.taxType === 'GST' && quote.taxTotal?.cgst !== undefined ? (
-                        <div className="flex justify-between text-slate-600">
-                            <span>Tax (CGST+SGST)</span>
-                            <span>₹{((quote.taxTotal.cgst || 0) + (quote.taxTotal.sgst || 0)).toFixed(2)}</span>
+                    {getViewerTaxBreakdown(quote).map((row, idx) => (
+                        <div key={idx} className="flex justify-between text-slate-600">
+                            <span>{row.label}</span>
+                            <span>₹{(row.amount || 0).toFixed(2)}</span>
                         </div>
-                    ) : quote.taxTotal !== undefined ? (
-                        <div className="flex justify-between text-slate-600">
-                            <span>{quote.taxType || 'Tax'} Total</span>
-                            <span>₹{(quote.taxTotal || 0).toFixed(2)}</span>
-                        </div>
-                    ) : null}
+                    ))}
                     <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">
                         <span>Estimate Total</span>
                         <span className="text-blue-600">₹{(quote.grandTotal || 0).toFixed(2)}</span>
@@ -216,8 +212,8 @@ const QuotationViewer = () => {
                 <div className="mt-10 pt-6 border-t border-slate-100 flex justify-end">
                     <div className="text-center">
                         <div className="border border-slate-200 rounded-lg p-2 w-48 h-20 flex items-center justify-center bg-slate-50 mb-2">
-                            {settings?.signatureUrl ? (
-                                <img src={settings.signatureUrl} alt="Signature" className="max-h-full max-w-full object-contain" />
+                            {settings?.signature ? (
+                                <img src={getImageUrl(settings.signature)} alt="Signature" className="max-h-full max-w-full object-contain" />
                             ) : (
                                 <span className="text-xs text-slate-400">Signature</span>
                             )}

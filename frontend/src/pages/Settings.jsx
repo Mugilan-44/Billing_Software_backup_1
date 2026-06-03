@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
-import axios from '../utils/api';
+import axios, { API_URL } from '../utils/api';
 import { useForm } from 'react-hook-form';
+
+const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+        return url;
+    }
+    const cleanUrl = url.replace(/^\/+/, '');
+    return API_URL ? `${API_URL}/${cleanUrl}` : `/${cleanUrl}`;
+};
 import { 
     Settings as SettingsIcon, Save, Image as ImageIcon, CreditCard, QrCode, 
     Building2, MapPin, Hash, Sun, Moon, Palette, UserPlus, Trash2, Edit2, AlertCircle, CheckCircle2 
@@ -305,7 +314,7 @@ const Settings = () => {
                         <div className="flex flex-col sm:flex-row items-start gap-6">
                             <div className="relative w-32 h-32 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
                                 {logoUrl ? (
-                                    <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                                    <img src={getImageUrl(logoUrl)} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
                                 ) : (
                                     <div className="text-center">
                                         <ImageIcon size={24} className="text-slate-300 mx-auto mb-1" />
@@ -338,7 +347,7 @@ const Settings = () => {
                         <div className="flex flex-col sm:flex-row items-start gap-6">
                             <div className="relative w-32 h-20 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
                                 {signature ? (
-                                    <img src={signature} alt="Signature" className="max-w-full max-h-full object-contain p-2" />
+                                    <img src={getImageUrl(signature)} alt="Signature" className="max-w-full max-h-full object-contain p-2" />
                                 ) : (
                                     <div className="text-center">
                                         <ImageIcon size={20} className="text-slate-300 mx-auto mb-1" />
@@ -480,7 +489,7 @@ const Settings = () => {
                                 <div className="flex flex-col sm:flex-row items-start gap-5">
                                     <div className="relative w-28 h-28 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
                                         {upiQrUrl ? (
-                                            <img src={upiQrUrl} alt="UPI QR" className="max-w-full max-h-full object-contain p-1" />
+                                            <img src={getImageUrl(upiQrUrl)} alt="UPI QR" className="max-w-full max-h-full object-contain p-1" />
                                         ) : (
                                             <div className="text-center">
                                                 <QrCode size={24} className="text-slate-300 mx-auto mb-1" />
@@ -528,7 +537,7 @@ const Settings = () => {
                             <h3 className="text-base font-bold text-slate-800">Auto-Numbering Configurations</h3>
                         </div>
                         <p className="text-sm text-slate-550 leading-relaxed">
-                            Configure automatic document number sequences separately for <strong>With Tax</strong> and <strong>Without Tax</strong> systems. 
+                            Configure automatic document number sequences separately for <strong>Tax</strong> and <strong>Tax Free</strong> systems. 
                             If <strong>Auto Generate</strong> is checked, document numbers are generated incrementally (e.g. prefix + starting number padded to standard length). 
                             If unchecked, you can type values manually for that mode during creation.
                         </p>
@@ -544,7 +553,7 @@ const Settings = () => {
                                     {/* With Tax System */}
                                     <div className="py-4 first:pt-0">
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">With Tax (WT) System Settings</span>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tax (WT) System Settings</span>
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <input 
                                                     type="checkbox" 
@@ -575,7 +584,7 @@ const Settings = () => {
                                     {/* Without Tax System */}
                                     <div className="py-4 last:pb-0">
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Without Tax (NT) System Settings</span>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tax Free (NT) System Settings</span>
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <input 
                                                     type="checkbox" 

@@ -5,6 +5,82 @@ import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, Trash2, Palette, FileText, Copy } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
+export const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+        return url;
+    }
+    const cleanUrl = url.replace(/^\/+/, '');
+    return API_URL ? `${API_URL}/${cleanUrl}` : `/${cleanUrl}`;
+};
+
+export function getViewerTaxBreakdown(invoice) {
+    const cgst = invoice.cgst ?? invoice.taxTotal?.cgst ?? 0;
+    const sgst = invoice.sgst ?? invoice.taxTotal?.sgst ?? 0;
+    const igst = invoice.igst ?? invoice.taxTotal?.igst ?? 0;
+    const totalTax = invoice.taxAmount ?? invoice.taxTotal?.totalTax ?? (cgst + sgst + igst);
+
+    if (totalTax <= 0) return [];
+
+    if (invoice.taxType === 'GST') {
+        const rows = [];
+        if (cgst > 0) rows.push({ label: 'CGST', amount: cgst });
+        if (sgst > 0) rows.push({ label: 'SGST', amount: sgst });
+        if (igst > 0) rows.push({ label: 'IGST', amount: igst });
+        return rows;
+    }
+
+    if (invoice.useProductSpecificTax) {
+        const items = invoice.lineItems || invoice.items || [];
+        const breakdown = {};
+        
+        const savedSystems = localStorage.getItem('invoice_tax_systems');
+        let taxSystems = [
+            { name: 'Commission or Brokerage', rate: 2 },
+            { name: 'Dividend', rate: 10 },
+            { name: 'GST', rate: 18 },
+            { name: 'Other Interest than securities', rate: 10 },
+            { name: 'Payment of contractors for Others', rate: 2 },
+            { name: 'Payment of contractors HUF/Indiv', rate: 1 },
+            { name: 'Technical Fees (2%)', rate: 2 }
+        ];
+        if (savedSystems) {
+            try { taxSystems = JSON.parse(savedSystems); } catch (e) {}
+        }
+
+        items.forEach(item => {
+            const qty = item.quantity || 0;
+            const rate = item.rate || 0;
+            const discountPercent = item.discountPercent || 0;
+            const taxRate = item.gstPercent ?? item.gstPercentage ?? 0;
+            if (taxRate <= 0) return;
+
+            const rawAmount = qty * rate;
+            const discountAmount = rawAmount * (discountPercent / 100);
+            const taxableAmount = rawAmount - discountAmount;
+            const taxAmount = taxableAmount * (taxRate / 100);
+
+            const matched = taxSystems.find(ts => ts.rate === taxRate);
+            const taxName = matched ? matched.name : (invoice.taxType && invoice.taxType !== 'GST' ? invoice.taxType : 'Tax');
+            const label = `${taxName} (${taxRate}%)`;
+
+            breakdown[label] = (breakdown[label] || 0) + taxAmount;
+        });
+
+        const rows = Object.entries(breakdown)
+            .filter(([_, amt]) => amt > 0)
+            .map(([label, amount]) => ({ label, amount }));
+
+        if (rows.length > 0) {
+            return rows;
+        }
+    }
+
+    const label = `${invoice.taxType || 'Tax'} Total`;
+    return [{ label, amount: totalTax }];
+}
+
+
 // ── Color Themes ────────────────────────────────────────────────────────────────
 export const COLOR_THEMES = [
     { label: 'Ocean Blue',   value: '#2563eb', light: '#eff6ff', border: '#bfdbfe' },
@@ -92,7 +168,7 @@ export const InvoiceFooterBlock = ({ invoice, settings, color }) => {
                     <div className="text-right max-w-[220px] flex flex-col items-center">
                         {settings?.signature ? (
                             <>
-                                <img src={settings.signature} alt="Signature" className="h-12 object-contain mx-auto mb-1" />
+                                <img src={getImageUrl(settings.signature)} alt="Signature" className="h-12 object-contain mx-auto mb-1" />
                                 <div className="border-t border-slate-300 w-36 my-1.5"></div>
                                 <p className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider text-center">Authorized Signature</p>
                             </>
@@ -121,7 +197,7 @@ export const TemplateModern = ({ invoice, customer, settings, color, printRef })
             <div className="flex justify-between items-start pb-8 mb-8" style={{ borderBottom: `3px solid ${color}` }}>
                 <div>
                     {settings?.logoUrl
-                        ? <img src={settings.logoUrl} alt="Logo" className="h-16 object-contain mb-3" />
+                        ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-16 object-contain mb-3" />
                         : <h1 className="text-2xl font-black mb-2" style={{ color }}>{settings?.companyName || 'Company'}</h1>
                     }
                     {settings?.logoUrl && <h2 className="text-lg font-bold text-slate-800 mb-1">{settings?.companyName}</h2>}
@@ -194,24 +270,19 @@ export const TemplateModern = ({ invoice, customer, settings, color, printRef })
                             <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color }}>UPI Payment</p>
                             <div className="text-sm text-slate-700 p-4 rounded-lg border" style={{ borderColor: color + '40', backgroundColor: color + '08' }}>
                                 {settings.upiId && <p className="font-semibold mb-2">{settings.upiId}</p>}
-                                {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="UPI QR" className="w-24 h-24 object-contain" />}
+                                {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-24 h-24 object-contain" />}
                             </div>
                         </div>
                     )}
                 </div>
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-slate-600"><span>Sub Total</span><span className="font-medium text-slate-900">₹{fmt(invoice.subTotal)}</span></div>
-                    {invoice.taxType === 'GST' ? (
-                        <>
-                            {tax.cgst > 0 && <div className="flex justify-between text-slate-600"><span>CGST</span><span className="font-medium">₹{fmt(tax.cgst)}</span></div>}
-                            {tax.sgst > 0 && <div className="flex justify-between text-slate-600"><span>SGST</span><span className="font-medium">₹{fmt(tax.sgst)}</span></div>}
-                            {tax.igst > 0 && <div className="flex justify-between text-slate-600"><span>IGST</span><span className="font-medium">₹{fmt(tax.igst)}</span></div>}
-                        </>
-                    ) : (
-                        tax.totalTax > 0 && (
-                            <div className="flex justify-between text-slate-600"><span>{invoice.taxType || 'Tax'} Total</span><span className="font-medium">₹{fmt(tax.totalTax)}</span></div>
-                        )
-                    )}
+                    {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                        <div key={idx} className="flex justify-between text-slate-600">
+                            <span>{row.label}</span>
+                            <span className="font-medium">₹{fmt(row.amount)}</span>
+                        </div>
+                    ))}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-red-600">
                             <span>Discount</span>
@@ -246,7 +317,7 @@ export const TemplateClassic = ({ invoice, customer, settings, color, printRef }
     return (
         <div className="bg-white p-10 border-2 border-slate-800 font-serif" ref={printRef}>
             <div className="text-center border-b-2 border-slate-800 pb-6 mb-8">
-                {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-14 object-contain mx-auto mb-3" /> : null}
+                {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-14 object-contain mx-auto mb-3" /> : null}
                 <h1 className="text-3xl font-bold text-slate-900 uppercase tracking-wider">{settings?.companyName || 'Company'}</h1>
                 <p className="text-slate-600 text-sm mt-1">{[settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', ')}</p>
                 {settings?.gstNumber && <p className="text-slate-600 text-sm">GSTIN: {settings.gstNumber}</p>}
@@ -297,15 +368,12 @@ export const TemplateClassic = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end mb-8">
                 <div className="w-1/2 border border-slate-400">
                     <div className="flex justify-between p-2 border-b border-slate-300 text-sm"><span>Sub Total:</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {invoice.taxType === 'GST' ? (
-                        <>
-                            {tax.cgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>CGST:</span><span>₹{fmt(tax.cgst)}</span></div>}
-                            {tax.sgst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>SGST:</span><span>₹{fmt(tax.sgst)}</span></div>}
-                            {tax.igst > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>IGST:</span><span>₹{fmt(tax.igst)}</span></div>}
-                        </>
-                    ) : (
-                        tax.totalTax > 0 && <div className="flex justify-between p-2 border-b border-slate-200 text-sm"><span>{invoice.taxType || 'Tax'} Total:</span><span>₹{fmt(tax.totalTax)}</span></div>
-                    )}
+                    {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                        <div key={idx} className="flex justify-between p-2 border-b border-slate-200 text-sm">
+                            <span>{row.label}:</span>
+                            <span>₹{fmt(row.amount)}</span>
+                        </div>
+                    ))}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between p-2 border-b border-slate-200 text-sm text-red-600"><span>Discount:</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -338,7 +406,7 @@ export const TemplateClassic = ({ invoice, customer, settings, color, printRef }
                                 <p className="text-xs font-bold uppercase mb-1">UPI Payment</p>
                                 {settings.upiId && <p className="text-sm font-mono">{settings.upiId}</p>}
                             </div>
-                            {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="QR" className="w-20 h-20 object-contain border border-slate-300 p-1" />}
+                            {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="QR" className="w-20 h-20 object-contain border border-slate-300 p-1" />}
                         </div>
                     )}
                 </div>
@@ -360,7 +428,7 @@ export const TemplateProfessional = ({ invoice, customer, settings, color, print
             <div className="p-12">
                 <div className="flex justify-between items-start mb-12">
                     <div>
-                        {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-20 object-contain mb-4" /> : <h1 className="text-3xl font-extrabold tracking-tight mb-2" style={{ color }}>{settings?.companyName}</h1>}
+                        {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-20 object-contain mb-4" /> : <h1 className="text-3xl font-extrabold tracking-tight mb-2" style={{ color }}>{settings?.companyName}</h1>}
                         {settings?.logoUrl && <h2 className="text-xl font-bold text-slate-800 mb-2">{settings?.companyName}</h2>}
                         <div className="text-slate-500 text-sm space-y-0.5">
                             <p>{settings?.address?.street}</p>
@@ -429,22 +497,19 @@ export const TemplateProfessional = ({ invoice, customer, settings, color, print
                         )}
                         {(settings?.upiId || settings?.upiQrUrl) && (
                             <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="UPI QR" className="w-20 h-20 object-contain" />}
+                                {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-20 h-20 object-contain" />}
                                 {settings.upiId && <div><p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Pay via UPI</p><p className="font-bold text-slate-900">{settings.upiId}</p></div>}
                             </div>
                         )}
                     </div>
                     <div className="w-1/3 space-y-3">
                         <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span className="font-bold text-slate-900">₹{fmt(invoice.subTotal)}</span></div>
-                        {invoice.taxType === 'GST' ? (
-                            <>
-                                {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span className="font-bold">₹{fmt(tax.cgst)}</span></div>}
-                                {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span className="font-bold">₹{fmt(tax.sgst)}</span></div>}
-                                {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span className="font-bold">₹{fmt(tax.igst)}</span></div>}
-                            </>
-                        ) : (
-                            tax.totalTax > 0 && <div className="flex justify-between text-sm text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span className="font-bold">₹{fmt(tax.totalTax)}</span></div>
-                        )}
+                        {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                            <div key={idx} className="flex justify-between text-sm text-slate-500">
+                                <span>{row.label}</span>
+                                <span className="font-bold">₹{fmt(row.amount)}</span>
+                            </div>
+                        ))}
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between text-sm text-red-600"><span>Discount</span><span className="font-bold">-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                         )}
@@ -472,7 +537,7 @@ export const TemplateElegant = ({ invoice, customer, settings, color, printRef }
         <div className="bg-white p-12 font-sans" style={{ border: `1px solid ${color}40` }} ref={printRef}>
             <div className="flex justify-between items-center mb-10 pb-8" style={{ borderBottom: `1px solid ${color}30` }}>
                 <div>
-                    {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-14 object-contain mb-2" /> : null}
+                    {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-14 object-contain mb-2" /> : null}
                     <h1 className="text-xl font-bold text-slate-900">{settings?.companyName}</h1>
                     <p className="text-slate-500 text-xs mt-1">{[settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(' • ')}</p>
                     {settings?.gstNumber && <p className="text-slate-500 text-xs">GSTIN: {settings.gstNumber}</p>}
@@ -529,15 +594,12 @@ export const TemplateElegant = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end">
                 <div className="w-72 space-y-2">
                     <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {invoice.taxType === 'GST' ? (
-                        <>
-                            {tax.cgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                            {tax.sgst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                            {tax.igst > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                        </>
-                    ) : (
-                        tax.totalTax > 0 && <div className="flex justify-between text-sm text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
-                    )}
+                    {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                        <div key={idx} className="flex justify-between text-sm text-slate-500">
+                            <span>{row.label}</span>
+                            <span>₹{fmt(row.amount)}</span>
+                        </div>
+                    ))}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-sm text-red-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -561,7 +623,7 @@ export const TemplateElegant = ({ invoice, customer, settings, color, printRef }
                     )}
                     {settings?.upiId && <div><p className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color }}>UPI</p>
                         <p className="text-sm font-mono text-slate-800">{settings.upiId}</p>
-                        {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="QR" className="w-20 h-20 mt-2 object-contain border" />}
+                        {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="QR" className="w-20 h-20 mt-2 object-contain border" />}
                     </div>}
                 </div>
             )}
@@ -580,7 +642,7 @@ export const TemplateMinimal = ({ invoice, customer, settings, color, printRef }
         <div className="bg-white p-12 font-sans" ref={printRef}>
             <div className="flex justify-between items-start mb-16">
                 <div>
-                    {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-12 object-contain mb-3" /> : <span className="text-2xl font-black text-slate-900">{settings?.companyName}</span>}
+                    {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-12 object-contain mb-3" /> : <span className="text-2xl font-black text-slate-900">{settings?.companyName}</span>}
                 </div>
                 <div className="text-right">
                     <p className="text-slate-400 text-sm">Invoice</p>
@@ -621,15 +683,12 @@ export const TemplateMinimal = ({ invoice, customer, settings, color, printRef }
             <div className="flex justify-end mb-8">
                 <div className="w-64 space-y-2 text-sm">
                     <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                    {invoice.taxType === 'GST' ? (
-                        <>
-                            {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                            {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                            {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                        </>
-                    ) : (
-                        tax.totalTax > 0 && <div className="flex justify-between text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
-                    )}
+                    {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                        <div key={idx} className="flex justify-between text-slate-500">
+                            <span>{row.label}</span>
+                            <span>₹{fmt(row.amount)}</span>
+                        </div>
+                    ))}
                     {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                         <div className="flex justify-between text-slate-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                     )}
@@ -656,7 +715,7 @@ export const TemplateMinimal = ({ invoice, customer, settings, color, printRef }
                     {settings?.upiQrUrl && (
                         <div>
                             <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">UPI QR</p>
-                            <img src={settings.upiQrUrl} alt="UPI QR" className="w-16 h-16 object-contain border p-1" />
+                            <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-16 h-16 object-contain border p-1" />
                         </div>
                     )}
                 </div>
@@ -677,7 +736,7 @@ export const TemplateBold = ({ invoice, customer, settings, color, printRef }) =
             <div className="p-10 text-white" style={{ backgroundColor: color }}>
                 <div className="flex justify-between items-start">
                     <div>
-                        {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-14 object-contain mb-3 brightness-0 invert" /> : <h1 className="text-2xl font-black mb-1">{settings?.companyName}</h1>}
+                        {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-14 object-contain mb-3 brightness-0 invert" /> : <h1 className="text-2xl font-black mb-1">{settings?.companyName}</h1>}
                         <p className="text-white/70 text-sm">{[settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', ')}</p>
                         {settings?.gstNumber && <p className="text-white/70 text-sm">GSTIN: {settings.gstNumber}</p>}
                     </div>
@@ -737,22 +796,19 @@ export const TemplateBold = ({ invoice, customer, settings, color, printRef }) =
                         )}
                         {(settings?.upiId || settings?.upiQrUrl) && (
                             <div className="bg-slate-50 rounded-xl p-4 text-sm flex items-center gap-3">
-                                {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="UPI QR" className="w-16 h-16 object-contain" />}
+                                {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-16 h-16 object-contain" />}
                                 {settings.upiId && <div><p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">UPI</p><p className="font-mono font-bold">{settings.upiId}</p></div>}
                             </div>
                         )}
                     </div>
                     <div className="text-right space-y-1 text-sm min-w-56">
                         <div className="flex justify-between gap-8 text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                        {invoice.taxType === 'GST' ? (
-                            <>
-                                {tax.cgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                                {tax.sgst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                                {tax.igst > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                            </>
-                        ) : (
-                            tax.totalTax > 0 && <div className="flex justify-between gap-8 text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
-                        )}
+                        {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                            <div key={idx} className="flex justify-between gap-8 text-slate-500">
+                                <span>{row.label}</span>
+                                <span>₹{fmt(row.amount)}</span>
+                            </div>
+                        ))}
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between gap-8 text-red-600"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>
                         )}
@@ -781,7 +837,7 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
             <div className="p-6" style={{ borderBottom: `3px solid ${color}` }}>
                 <div className="flex justify-between items-start">
                     <div>
-                        {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-12 object-contain mb-2" />}
+                        {settings?.logoUrl && <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-12 object-contain mb-2" />}
                         <h1 className="text-base font-black text-slate-900">{settings?.companyName}</h1>
                         <p className="text-slate-500">{[settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', ')}</p>
                         <p className="text-slate-500">GSTIN: <span className="font-bold text-slate-800">{settings?.gstNumber || 'N/A'}</span></p>
@@ -914,7 +970,7 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                     )}
                     {(settings?.upiId || settings?.upiQrUrl) && (
                         <div className="flex items-center gap-3">
-                            {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="UPI QR" className="w-20 h-20 object-contain border border-slate-300" />}
+                            {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-20 h-20 object-contain border border-slate-300" />}
                             {settings.upiId && <p className="font-mono font-bold text-slate-900">UPI: {settings.upiId}</p>}
                         </div>
                     )}
@@ -927,15 +983,12 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                                 <tr><td className="px-3 py-1 text-red-600 border-b border-r border-slate-200">Discount</td><td className="px-3 py-1 text-red-600 border-b border-slate-200">-₹{fmt(invoice.discount || invoice.discountAmount)}</td></tr>
                             )}
                             <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">Taxable Amount</td><td className="px-3 py-1 font-bold border-b border-slate-200">₹{fmt(invoice.taxableAmount || invoice.subTotal - (invoice.discount || 0))}</td></tr>
-                            {invoice.taxType === 'GST' ? (
-                                <>
-                                    {tax.cgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">CGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.cgst)}</td></tr>}
-                                    {tax.sgst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">SGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.sgst)}</td></tr>}
-                                    {tax.igst > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">IGST</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.igst)}</td></tr>}
-                                </>
-                            ) : (
-                                tax.totalTax > 0 && <tr><td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">{invoice.taxType || 'Tax'} Total</td><td className="px-3 py-1 border-b border-slate-200">₹{fmt(tax.totalTax)}</td></tr>
-                            )}
+                            {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                                <tr key={idx}>
+                                    <td className="px-3 py-1 text-slate-500 border-b border-r border-slate-200">{row.label}</td>
+                                    <td className="px-3 py-1 border-b border-slate-200">₹{fmt(row.amount)}</td>
+                                </tr>
+                            ))}
                             {invoice.amountPaid > 0 && <tr><td className="px-3 py-1 text-emerald-600 border-b border-r border-slate-200">Amount Received</td><td className="px-3 py-1 text-emerald-600 border-b border-slate-200">₹{fmt(invoice.amountPaid)}</td></tr>}
                             <tr className="font-black text-white" style={{ backgroundColor: color }}><td className="px-3 py-2 border-r border-white/20">Total Amount</td><td className="px-3 py-2">₹{fmt(invoice.grandTotal)}</td></tr>
                         </tbody>
@@ -953,7 +1006,7 @@ export const TemplateGST = ({ invoice, customer, settings, color, printRef }) =>
                     <div className="text-right max-w-[200px] flex flex-col items-center">
                         {settings?.signature ? (
                             <>
-                                <img src={settings.signature} alt="Signature" className="h-8 object-contain mx-auto mb-1" />
+                                <img src={getImageUrl(settings.signature)} alt="Signature" className="h-8 object-contain mx-auto mb-1" />
                                 <div className="border-t border-slate-300 w-28 my-1"></div>
                                 <p className="text-[9px] text-slate-500 font-bold">Authorized Signature</p>
                             </>
@@ -988,7 +1041,7 @@ export const TemplateVibrant = ({ invoice, customer, settings, color, printRef }
                 <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full opacity-10" style={{ backgroundColor: 'white' }}></div>
                 <div className="relative flex justify-between items-start">
                     <div>
-                        {settings?.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="h-14 object-contain mb-3 brightness-0 invert" /> : <h1 className="text-2xl font-black text-white mb-1">{settings?.companyName}</h1>}
+                        {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-14 object-contain mb-3 brightness-0 invert" /> : <h1 className="text-2xl font-black text-white mb-1">{settings?.companyName}</h1>}
                         <p className="text-white/70 text-sm">{[settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', ')}</p>
                         {settings?.gstNumber && <p className="text-white/70 text-sm">GSTIN: {settings.gstNumber}</p>}
                     </div>
@@ -1059,7 +1112,7 @@ export const TemplateVibrant = ({ invoice, customer, settings, color, printRef }
                         )}
                         {(settings?.upiId || settings?.upiQrUrl) && (
                             <div className="p-4 rounded-xl flex items-center gap-3 text-sm" style={{ backgroundColor: theme.light, border: `1px solid ${theme.border}` }}>
-                                {settings.upiQrUrl && <img src={settings.upiQrUrl} alt="UPI QR" className="w-16 h-16 object-contain" />}
+                                {settings.upiQrUrl && <img src={getImageUrl(settings.upiQrUrl)} alt="UPI QR" className="w-16 h-16 object-contain" />}
                                 {settings.upiId && <div><p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color }}>UPI</p><p className="font-mono font-bold text-slate-900">{settings.upiId}</p></div>}
                             </div>
                         )}
@@ -1067,15 +1120,12 @@ export const TemplateVibrant = ({ invoice, customer, settings, color, printRef }
                     <div className="text-right p-6 rounded-2xl min-w-64" style={{ backgroundColor: theme.light, border: `1px solid ${theme.border}` }}>
                         <div className="space-y-1 text-sm mb-3">
                             <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>₹{fmt(invoice.subTotal)}</span></div>
-                            {invoice.taxType === 'GST' ? (
-                                <>
-                                    {tax.cgst > 0 && <div className="flex justify-between text-slate-500"><span>CGST</span><span>₹{fmt(tax.cgst)}</span></div>}
-                                    {tax.sgst > 0 && <div className="flex justify-between text-slate-500"><span>SGST</span><span>₹{fmt(tax.sgst)}</span></div>}
-                                    {tax.igst > 0 && <div className="flex justify-between text-slate-500"><span>IGST</span><span>₹{fmt(tax.igst)}</span></div>}
-                                </>
-                            ) : (
-                                tax.totalTax > 0 && <div className="flex justify-between text-slate-500"><span>{invoice.taxType || 'Tax'} Total</span><span>₹{fmt(tax.totalTax)}</span></div>
-                            )}
+                            {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                                <div key={idx} className="flex justify-between text-slate-500">
+                                    <span>{row.label}</span>
+                                    <span>₹{fmt(row.amount)}</span>
+                                </div>
+                            ))}
                         </div>
                         {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                             <div className="flex justify-between text-slate-500"><span>Discount</span><span>-₹{fmt(invoice.discount || invoice.discountAmount)}</span></div>

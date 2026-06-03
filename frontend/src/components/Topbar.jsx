@@ -196,7 +196,7 @@ const Topbar = () => {
                             title="Tax System Mode"
                         >
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            {taxSystemMode === 'OVERALL' ? 'Overall System' : taxSystemMode === 'WITH_TAX' ? 'With Tax' : 'Without Tax'}
+                            {taxSystemMode === 'OVERALL' ? 'Combined' : taxSystemMode === 'WITH_TAX' ? 'Tax' : 'Tax Free'}
                             <ChevronDown size={13} className="text-slate-400" />
                         </button>
 
@@ -207,19 +207,19 @@ const Topbar = () => {
                                     onClick={() => { setTaxSystemMode('OVERALL'); setTaxDropdownOpen(false); }}
                                     className={`dropdown-item ${taxSystemMode === 'OVERALL' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
-                                    Overall System
+                                    Combined
                                 </button>
                                 <button
                                     onClick={() => { setTaxSystemMode('WITH_TAX'); setTaxDropdownOpen(false); }}
                                     className={`dropdown-item ${taxSystemMode === 'WITH_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
-                                    With Tax System
+                                    Tax
                                 </button>
                                 <button
                                     onClick={() => { setTaxSystemMode('WITHOUT_TAX'); setTaxDropdownOpen(false); }}
                                     className={`dropdown-item ${taxSystemMode === 'WITHOUT_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
-                                    Without Tax System
+                                    Tax Free
                                 </button>
                             </div>
                         )}

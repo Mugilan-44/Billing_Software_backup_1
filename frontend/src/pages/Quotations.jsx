@@ -73,7 +73,7 @@ const Quotations = () => {
                         <input
                             type="text"
                             className="input-field pl-10"
-                            placeholder="Search quote number or customer..."
+                            placeholder="Search reference number or customer..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -99,7 +99,7 @@ const Quotations = () => {
                         <thead className="bg-gray-50 text-left">
                             <tr>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Quote #</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Reference No.</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount (₹)</th>

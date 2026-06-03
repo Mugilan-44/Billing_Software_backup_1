@@ -5,6 +5,7 @@ import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, FileCheck, Trash2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { useToast } from '../context/ToastContext';
+import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -161,7 +162,7 @@ const SalesOrderViewer = () => {
                     <div className="flex justify-between items-start border-b border-slate-100 pb-8 mb-8">
                         <div>
                             {settings?.logoUrl ? (
-                                <img src={`${settings.logoUrl}`} alt="Logo" className="h-16 object-contain mb-4" />
+                                <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="h-16 object-contain mb-4" />
                             ) : (
                                 <h1 className="text-2xl font-black text-slate-900 mb-2">{settings?.companyName || 'Transport Company'}</h1>
                             )}
@@ -226,6 +227,12 @@ const SalesOrderViewer = () => {
                                 <span>Sub Total</span>
                                 <span className="font-medium text-slate-900">₹{(order.subTotal || order.subtotal || 0).toFixed(2)}</span>
                             </div>
+                             {getViewerTaxBreakdown(order).map((row, idx) => (
+                                <div key={idx} className="flex justify-between text-slate-600">
+                                    <span>{row.label}</span>
+                                    <span>₹{(row.amount || 0).toFixed(2)}</span>
+                                </div>
+                            ))}
                             <div className="flex justify-between text-lg font-bold text-slate-900 border-t border-slate-200 pt-3 mt-3">
                                 <span>Order Total</span>
                                 <span className="text-purple-600">₹{(order.grandTotal || 0).toFixed(2)}</span>
@@ -268,8 +275,8 @@ const SalesOrderViewer = () => {
                         <div className="mt-10 pt-6 border-t border-slate-100 flex justify-end">
                             <div className="text-center">
                                 <div className="border border-slate-200 rounded-lg p-2 w-48 h-20 flex items-center justify-center bg-slate-50 mb-2">
-                                    {settings?.signatureUrl ? (
-                                        <img src={settings.signatureUrl} alt="Signature" className="max-h-full max-w-full object-contain" />
+                                    {settings?.signature ? (
+                                        <img src={getImageUrl(settings.signature)} alt="Signature" className="max-h-full max-w-full object-contain" />
                                     ) : (
                                         <span className="text-xs text-slate-400">Signature</span>
                                     )}
