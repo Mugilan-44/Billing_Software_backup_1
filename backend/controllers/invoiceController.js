@@ -84,7 +84,8 @@ export const createInvoice = async (req, res) => {
               taxType = 'GST', taxRate, isTaxed = true,
               useProductSpecificTax = true,
               tdsTcsType = 'None', tdsPercentage = 0, tcsPercentage = 0,
-              includeTerms = true, includeSignature = false } = parsed.data;
+              includeTerms = true, includeSignature = false,
+              billingAddress, shippingAddress } = parsed.data;
 
       const customer = await Customer.findById(customerId).session(session);
       if (!customer) throw new Error('Customer not found');
@@ -152,6 +153,8 @@ export const createInvoice = async (req, res) => {
         tcsAmount: totals.tcsAmount.toNumber(),
         includeTerms,
         includeSignature,
+        billingAddress,
+        shippingAddress,
         taxMode: req.body.taxMode || 'WITH_TAX',
         invoiceNumber: req.body.invoiceNumber || undefined
       };
@@ -263,6 +266,7 @@ export const createInvoice = async (req, res) => {
       date,
       status,
       billingAddress,
+      shippingAddress,
       includeTerms,
       includeSignature,
     } = req.body;

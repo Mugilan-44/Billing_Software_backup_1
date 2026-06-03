@@ -37,6 +37,8 @@ export const createInvoiceSchema = z.object({
   includeSignature:   z.boolean().optional().default(false),
   includeBankDetails: z.boolean().optional().default(true),
   includeUpiQr:       z.boolean().optional().default(true),
+  billingAddress:     z.string().optional(),
+  shippingAddress:    z.string().optional(),
 })
 
 export const recordPaymentSchema = z.object({

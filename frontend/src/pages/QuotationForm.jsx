@@ -607,11 +607,11 @@ const QuotationForm = () => {
                         </div>
                     </InputRow>
 
-                    <InputRow label="Quotation No." helper="Optional quotation number or reference for tracking">
+                    <InputRow label="Reference No." helper="Optional reference number for tracking">
                         <input
                             type="text" value={referenceNumber} onChange={e => setReferenceNumber(e.target.value)}
                             className="input-field max-w-md"
-                            placeholder="e.g. QN-890"
+                            placeholder="e.g. REF-890"
                         />
                     </InputRow>
 
