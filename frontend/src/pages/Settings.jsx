@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios, { API_URL } from '../utils/api';
 import { useForm } from 'react-hook-form';
 
@@ -253,57 +253,85 @@ const Settings = () => {
         }
     };
 
-    const handleLogoUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setUploadingLogo(true);
-        try {
-            const processedFile = await resizeAndCropImage(file, 300, 100, 'contain');
-            const formData = new FormData();
-            formData.append('image', processedFile);
-            const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-            setValue('logoUrl', res.data.url, { shouldDirty: true });
-        } catch (err) {
-            console.error('Logo upload error:', err);
-            alert('Failed to upload logo. Please try again.');
-        } finally {
-            setUploadingLogo(false);
-        }
+    // Cropper State
+    const [cropperOpen, setCropperOpen] = useState(false);
+    const [cropperImage, setCropperImage] = useState(null);
+    const [cropperParams, setCropperParams] = useState({ targetWidth: 300, targetHeight: 100, cropWidth: 300, cropHeight: 100 });
+    const [cropperType, setCropperType] = useState(''); // 'logo', 'signature', 'upiQr'
+    const [originalFileName, setOriginalFileName] = useState('');
+
+    const triggerCropper = (file, type, targetWidth, targetHeight, cropWidth, cropHeight) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setCropperImage(e.target.result);
+            setCropperType(type);
+            setCropperParams({ targetWidth, targetHeight, cropWidth, cropHeight });
+            setOriginalFileName(file.name);
+            setCropperOpen(true);
+        };
+        reader.readAsDataURL(file);
     };
 
-    const handleUpiQrUpload = async (e) => {
+    const handleLogoUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        setUploadingUpiQr(true);
-        try {
-            const processedFile = await resizeAndCropImage(file, 250, 250, 'contain');
-            const formData = new FormData();
-            formData.append('image', processedFile);
-            const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-            setValue('upiQrUrl', res.data.url, { shouldDirty: true });
-        } catch (err) {
-            console.error('QR code upload error:', err);
-            alert('Failed to upload UPI QR code image. Please try again.');
-        } finally {
-            setUploadingUpiQr(false);
-        }
+        triggerCropper(file, 'logo', 300, 100, 300, 100);
+        e.target.value = '';
     };
 
-    const handleSignatureUpload = async (e) => {
+    const handleUpiQrUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        setUploadingSignature(true);
-        try {
-            const processedFile = await resizeAndCropImage(file, 300, 100, 'contain');
-            const formData = new FormData();
-            formData.append('image', processedFile);
-            const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-            setValue('signature', res.data.url, { shouldDirty: true });
-        } catch (err) {
-            console.error('Signature upload error:', err);
-            alert('Failed to upload signature. Please try again.');
-        } finally {
-            setUploadingSignature(false);
+        triggerCropper(file, 'upiQr', 250, 250, 200, 200);
+        e.target.value = '';
+    };
+
+    const handleSignatureUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        triggerCropper(file, 'signature', 300, 100, 300, 100);
+        e.target.value = '';
+    };
+
+    const handleCropComplete = async (blob) => {
+        setCropperOpen(false);
+        const file = new File([blob], originalFileName || 'image.png', { type: 'image/png' });
+        const formData = new FormData();
+        formData.append('image', file);
+
+        if (cropperType === 'logo') {
+            setUploadingLogo(true);
+            try {
+                const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                setValue('logoUrl', res.data.url, { shouldDirty: true });
+            } catch (err) {
+                console.error('Logo upload error:', err);
+                alert('Failed to upload logo. Please try again.');
+            } finally {
+                setUploadingLogo(false);
+            }
+        } else if (cropperType === 'upiQr') {
+            setUploadingUpiQr(true);
+            try {
+                const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                setValue('upiQrUrl', res.data.url, { shouldDirty: true });
+            } catch (err) {
+                console.error('QR code upload error:', err);
+                alert('Failed to upload UPI QR code image. Please try again.');
+            } finally {
+                setUploadingUpiQr(false);
+            }
+        } else if (cropperType === 'signature') {
+            setUploadingSignature(true);
+            try {
+                const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                setValue('signature', res.data.url, { shouldDirty: true });
+            } catch (err) {
+                console.error('Signature upload error:', err);
+                alert('Failed to upload signature. Please try again.');
+            } finally {
+                setUploadingSignature(false);
+            }
         }
     };
 
@@ -858,6 +886,291 @@ const Settings = () => {
                     )}
                 </div>
             )}
+
+            <ImageCropperModal
+                isOpen={cropperOpen}
+                imageSrc={cropperImage}
+                targetWidth={cropperParams.targetWidth}
+                targetHeight={cropperParams.targetHeight}
+                cropWidth={cropperParams.cropWidth}
+                cropHeight={cropperParams.cropHeight}
+                onCrop={handleCropComplete}
+                onClose={() => setCropperOpen(false)}
+            />
+        </div>
+    );
+};
+
+const ImageCropperModal = ({ isOpen, imageSrc, targetWidth, targetHeight, cropWidth: initialCropWidth, cropHeight: initialCropHeight, onCrop, onClose }) => {
+    const [scale, setScale] = useState(1);
+    const [minScale, setMinScale] = useState(0.1);
+    const [maxScale, setMaxScale] = useState(2);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [containerSize, setContainerSize] = useState({ width: 340, height: 280 });
+    
+    const containerRef = useRef(null);
+    const imgRef = useRef(null);
+
+    // Calculate crop dimensions inside container dynamically
+    const aspectRatio = targetWidth / targetHeight;
+    const containerWidth = containerSize.width;
+    const containerHeight = containerSize.height;
+    
+    // We want the crop box to have some margin (e.g. 24px) from container edges
+    const maxCropWidth = containerWidth - 48;
+    const maxCropHeight = containerHeight - 48;
+    
+    let cropWidth = initialCropWidth;
+    let cropHeight = initialCropHeight;
+    
+    if (cropWidth > maxCropWidth || cropHeight > maxCropHeight) {
+        if (maxCropWidth / aspectRatio <= maxCropHeight) {
+            cropWidth = maxCropWidth;
+            cropHeight = maxCropWidth / aspectRatio;
+        } else {
+            cropHeight = maxCropHeight;
+            cropWidth = maxCropHeight * aspectRatio;
+        }
+    }
+    
+    const B_X = (containerWidth - cropWidth) / 2;
+    const B_Y = (containerHeight - cropHeight) / 2;
+
+    // Measure container size on mount/open
+    useEffect(() => {
+        if (isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const w = rect.width || 340;
+            const h = Math.min(300, w * 0.85); // responsive height
+            setContainerSize({ width: w, height: h });
+            setIsLoaded(false);
+        }
+    }, [isOpen, imageSrc]);
+
+    // Handle image loading
+    const handleImageLoad = (e) => {
+        const img = e.target || imgRef.current;
+        if (!img) return;
+        
+        const naturalW = img.naturalWidth || img.width;
+        const naturalH = img.naturalHeight || img.height;
+        if (!naturalW || !naturalH) return;
+        
+        setImgDimensions({ width: naturalW, height: naturalH });
+        
+        // Calculate min scale to fully cover crop box
+        const minS = Math.max(cropWidth / naturalW, cropHeight / naturalH);
+        setMinScale(minS);
+        setMaxScale(Math.max(minS * 4, 3));
+        
+        // Set initial scale to cover crop box
+        setScale(minS);
+        
+        // Center the image
+        const renderW = naturalW * minS;
+        const renderH = naturalH * minS;
+        const initialX = B_X + (cropWidth - renderW) / 2;
+        const initialY = B_Y + (cropHeight - renderH) / 2;
+        setOffset({ x: initialX, y: initialY });
+        setIsLoaded(true);
+    };
+
+    // If image complete check (for cached images)
+    useEffect(() => {
+        if (isOpen && imgRef.current && imgRef.current.complete) {
+            handleImageLoad({ target: imgRef.current });
+        }
+    }, [isOpen, imageSrc, imgRef.current]);
+
+    const handleMouseDown = (e) => {
+        if (!isLoaded) return;
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging || !isLoaded) return;
+        const newX = e.clientX - dragStart.x;
+        const newY = e.clientY - dragStart.y;
+        const clamped = clampOffset(newX, newY, scale, imgDimensions.width, imgDimensions.height, cropWidth, cropHeight, B_X, B_Y);
+        setOffset(clamped);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleTouchStart = (e) => {
+        if (!isLoaded) return;
+        if (e.touches.length === 1) {
+            setIsDragging(true);
+            setDragStart({ x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y });
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (!isDragging || !isLoaded || e.touches.length !== 1) return;
+        const newX = e.touches[0].clientX - dragStart.x;
+        const newY = e.touches[0].clientY - dragStart.y;
+        const clamped = clampOffset(newX, newY, scale, imgDimensions.width, imgDimensions.height, cropWidth, cropHeight, B_X, B_Y);
+        setOffset(clamped);
+    };
+
+    const handleZoomChange = (newScale) => {
+        const centerX = B_X + cropWidth / 2;
+        const centerY = B_Y + cropHeight / 2;
+        
+        const newX = centerX - (centerX - offset.x) * (newScale / scale);
+        const newY = centerY - (centerY - offset.y) * (newScale / scale);
+        
+        const clamped = clampOffset(newX, newY, newScale, imgDimensions.width, imgDimensions.height, cropWidth, cropHeight, B_X, B_Y);
+        setScale(newScale);
+        setOffset(clamped);
+    };
+
+    const clampOffset = (x, y, currentScale, imgW, imgH, cropW, cropH, bx, by) => {
+        const renderedW = imgW * currentScale;
+        const renderedH = imgH * currentScale;
+        
+        let minX = bx - (renderedW - cropW);
+        let maxX = bx;
+        let minY = by - (renderedH - cropH);
+        let maxY = by;
+        
+        if (renderedW < cropW) {
+            minX = bx + (cropW - renderedW) / 2;
+            maxX = minX;
+        }
+        if (renderedH < cropH) {
+            minY = by + (cropH - renderedH) / 2;
+            maxY = minY;
+        }
+        
+        return {
+            x: Math.min(Math.max(x, minX), maxX),
+            y: Math.min(Math.max(y, minY), maxY)
+        };
+    };
+
+    const handleSave = () => {
+        if (!isLoaded || !imgDimensions.width || !imgDimensions.height) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+
+        const img = imgRef.current;
+
+        // Math to crop precisely
+        const sx = (B_X - offset.x) / scale;
+        const sy = (B_Y - offset.y) / scale;
+        const sWidth = cropWidth / scale;
+        const sHeight = cropHeight / scale;
+
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                onCrop(blob);
+            }
+        }, 'image/png');
+    };
+
+    if (!isOpen || !imageSrc) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider font-sans">Crop Image</h3>
+                    <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 text-xs font-semibold">Cancel</button>
+                </div>
+                <div className="p-6 flex flex-col items-center space-y-6">
+                    <div 
+                        ref={containerRef}
+                        className="relative bg-slate-950 overflow-hidden cursor-move select-none rounded-2xl border border-slate-200 dark:border-slate-800 w-full flex items-center justify-center"
+                        style={{ height: containerHeight }}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleMouseUp}
+                    >
+                        <img
+                            ref={imgRef}
+                            src={imageSrc}
+                            alt="Crop Preview"
+                            onLoad={handleImageLoad}
+                            draggable="false"
+                            className="absolute max-w-none origin-top-left select-none pointer-events-none"
+                            style={{
+                                width: imgDimensions.width * scale,
+                                height: imgDimensions.height * scale,
+                                left: offset.x,
+                                top: offset.y,
+                                opacity: isLoaded ? 1 : 0,
+                                transition: isLoaded ? 'opacity 0.2s ease-in' : 'none'
+                            }}
+                        />
+                        {!isLoaded && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+                                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
+                        {isLoaded && (
+                            <>
+                                <div className="absolute bg-black/60 pointer-events-none" style={{ left: 0, top: 0, width: containerWidth, height: B_Y }} />
+                                <div className="absolute bg-black/60 pointer-events-none" style={{ left: 0, bottom: 0, width: containerWidth, height: containerHeight - B_Y - cropHeight }} />
+                                <div className="absolute bg-black/60 pointer-events-none" style={{ left: 0, top: B_Y, width: B_X, height: cropHeight }} />
+                                <div className="absolute bg-black/60 pointer-events-none" style={{ right: 0, top: B_Y, width: containerWidth - B_X - cropWidth, height: cropHeight }} />
+                                <div 
+                                    className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.15)] pointer-events-none" 
+                                    style={{ left: B_X, top: B_Y, width: cropWidth, height: cropHeight }}
+                                >
+                                    <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-white"></div>
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-white"></div>
+                                    <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-white"></div>
+                                    <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-white"></div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {isLoaded && (
+                        <div className="w-full space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-sans">
+                                <span>Adjust Zoom</span>
+                                <span>{Math.round((scale / minScale) * 100)}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min={minScale}
+                                max={maxScale}
+                                step={(maxScale - minScale) / 100}
+                                value={scale}
+                                onChange={(e) => handleZoomChange(Number(e.target.value))}
+                                className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-250 dark:bg-slate-800 rounded-lg appearance-none"
+                            />
+                        </div>
+                    )}
+
+                    <button 
+                        type="button"
+                        onClick={handleSave} 
+                        disabled={!isLoaded}
+                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-md shadow-blue-500/10 transition-all active:scale-[0.98] text-sm font-sans"
+                    >
+                        Crop & Upload
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

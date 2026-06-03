@@ -4,6 +4,7 @@ import User from './models/User.js';
 import Company from './models/Company.js';
 import Branch from './models/Branch.js';
 import CompanySettings from './models/CompanySettings.js';
+import Subscription from './models/Subscription.js';
 
 dotenv.config();
 
@@ -49,6 +50,15 @@ const createTestCompany = async () => {
       createdBy
     });
     console.log(`✅ Branch Created: ${branch.branchName}`);
+
+    // 3.5. Create Subscription
+    await Subscription.create({
+      companyId: company._id,
+      plan: 'Premium',
+      status: 'ACTIVE',
+      createdBy
+    });
+    console.log(`✅ Subscription Created`);
 
     // 4. Create the Test Admin User
     const testEmail = `testadmin_${Date.now()}@billing.com`;
