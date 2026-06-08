@@ -55,7 +55,7 @@ const paymentSchema = new mongoose.Schema({
   taxMode: { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
 
-paymentSchema.pre('validate', function(next) {
+paymentSchema.pre('validate', function() {
   const normalize = (val) => {
     if (!val) return val;
     if (val === 'Bank Transfer' || val === 'Bank Transfer (NEFT/RTGS)') return 'Bank';
@@ -64,7 +64,6 @@ paymentSchema.pre('validate', function(next) {
   };
   if (this.paymentMode) this.paymentMode = normalize(this.paymentMode);
   if (this.mode) this.mode = normalize(this.mode);
-  next();
 });
 
 paymentSchema.index({ invoiceId: 1 });
