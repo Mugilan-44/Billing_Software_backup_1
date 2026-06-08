@@ -1,0 +1,172 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Search, FileText, Download, Share2 } from 'lucide-react';
+
+const Invoices = () => {
+    const navigate = useNavigate();
+    const [invoices, setInvoices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('date-desc');
+
+    useEffect(() => {
+        fetchInvoices();
+    }, []);
+
+    const fetchInvoices = async () => {
+        try {
+            const res = await axios.get('/api/invoices');
+            setInvoices(res.data.data);
+        } catch (error) {
+            console.error('Error fetching invoices', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDownload = async (id, invoiceNumber) => {
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token || localStorage.getItem('token') || '';
+            const res = await axios.get(`/api/invoices/${id}/download`, {
+                responseType: 'blob',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${invoiceNumber}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+        } catch (error) {
+            console.error('Error downloading PDF', error);
+            alert('Error downloading PDF. File might not exist or backend is missing data.');
+        }
+    };
+
+    const handleShareWhatsApp = (invoice) => {
+        const link = `http://localhost:5173/public/invoice/${invoice._id}`;
+        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${invoice.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+
+
+    const filteredInvoices = invoices.filter(inv =>
+        inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (inv.customerId?.companyName && inv.customerId.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    const sortedInvoices = [...filteredInvoices].sort((a, b) => {
+        if (sortBy === 'date-desc') return new Date(b.date) - new Date(a.date);
+        if (sortBy === 'date-asc') return new Date(a.date) - new Date(b.date);
+        if (sortBy === 'amount-desc') return b.grandTotal - a.grandTotal;
+        if (sortBy === 'amount-asc') return a.grandTotal - b.grandTotal;
+        return 0;
+    });
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <div>
+                    <h1 className="text-xl font-semibold text-gray-800">Invoices</h1>
+                    <p className="text-sm text-gray-500">Create, track, and manage all billing documents.</p>
+                </div>
+                <Link to="/invoices/new" className="btn-primary flex items-center">
+                    <Plus size={18} className="mr-2" />
+                    Create Invoice
+                </Link>
+            </div>
+
+            <div className="card">
+                <div className="mb-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full max-w-md">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search size={18} className="text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            className="input-field pl-10"
+                            placeholder="Search invoice number or customer..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-500">Sort:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="text-sm"
+                        >
+                            <option value="date-desc">Newest First</option>
+                            <option value="date-asc">Oldest First</option>
+                            <option value="amount-desc">Amount (High-Low)</option>
+                            <option value="amount-asc">Amount (Low-High)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 text-left">
+                            <tr>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {loading ? (
+                                <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td></tr>
+                            ) : sortedInvoices.length === 0 ? (
+                                <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No invoices found.</td></tr>
+                            ) : (
+                                sortedInvoices.map(inv => (
+                                    <tr
+                                        key={inv._id}
+                                        onClick={() => navigate(`/invoices/${inv._id}`)}
+                                        className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {new Date(inv.date).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-primary-600">{inv.invoiceNumber}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">{inv.customerId?.companyName}</div>
+                                            <div className="text-xs text-gray-500">{inv.customerId?.email}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                        ${inv.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                    inv.status === 'Partially Paid' ? 'bg-yellow-100 text-yellow-800' :
+                                                        inv.status === 'Sent' ? 'bg-blue-100 text-blue-800' :
+                                                            inv.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                                                                'bg-gray-100 text-gray-800'}`}>
+                                                {inv.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                                            ₹{inv.grandTotal.toFixed(2)}
+                                            {inv.status !== 'Paid' && (
+                                                <div className="text-xs text-gray-500 font-normal mt-1">Bal: ₹{(inv.grandTotal - inv.amountPaid).toFixed(2)}</div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Invoices;
