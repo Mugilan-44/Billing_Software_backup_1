@@ -530,8 +530,33 @@ const ChallanForm = () => {
                                 <Info size={14} className="mt-0.5 text-blue-400 shrink-0" />
                                 <div>
                                     <p className="font-bold text-slate-700 mb-0.5">Shipping Address:</p>
-                                    {customers.find(c => c._id === customerId)?.billingAddress?.street || 'No address provided'},
-                                    {customers.find(c => c._id === customerId)?.billingAddress?.city || ''}
+                                    {(() => {
+                                        const cust = customers.find(c => c._id === customerId);
+                                        const sa = cust?.shippingAddress;
+                                        const ba = cust?.billingAddress;
+                                        
+                                        const formatAddress = (addr) => {
+                                            if (!addr) return '';
+                                            const street1 = addr.street1 || addr.street || '';
+                                            const street2 = addr.street2 || '';
+                                            const city = addr.city || '';
+                                            const state = addr.state || '';
+                                            const zip = addr.zipCode || addr.zip || '';
+                                            const country = addr.country || '';
+                                            
+                                            return [
+                                                addr.attention ? `Attn: ${addr.attention}` : '',
+                                                street1,
+                                                street2,
+                                                city,
+                                                state,
+                                                zip,
+                                                country
+                                            ].filter(Boolean).join(', ');
+                                        };
+                                        
+                                        return formatAddress(sa) || formatAddress(ba) || 'No address provided';
+                                    })()}
                                 </div>
                             </div>
                         )}

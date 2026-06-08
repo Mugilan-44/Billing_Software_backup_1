@@ -326,9 +326,6 @@ const QuotationViewer = () => {
 
                     {quote.status === 'Accepted' && (
                         <>
-                            <button onClick={() => navigate(`/sales-orders/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-purple-700 transition-all">
-                                <ClipboardList size={18} /> Convert to Order
-                            </button>
                             <button onClick={() => navigate(`/invoices/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
                                 <ClipboardList size={18} /> Convert to Invoice
                             </button>

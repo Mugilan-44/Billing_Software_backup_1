@@ -1117,11 +1117,11 @@ const InvoiceForm = () => {
                         <table className="w-full text-left table-fixed">
                             <thead>
                                 <tr className="bg-white border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase">
-                                    <th className={`px-4 py-3 tracking-wider ${useProductSpecificTax ? 'w-[35%]' : 'w-[50%]'}`}>Item Details</th>
+                                    <th className={`px-4 py-3 tracking-wider ${isTaxed && useProductSpecificTax ? 'w-[35%]' : 'w-[50%]'}`}>Item Details</th>
                                     <th className={`px-4 py-3 border-l border-slate-50 tracking-wider text-right w-[10%]`}>Quantity</th>
                                     <th className={`px-4 py-3 border-l border-slate-50 tracking-wider text-right w-[15%]`}>Rate</th>
                                     <th className={`px-4 py-3 border-l border-slate-50 tracking-wider text-right w-[15%]`}>Discount</th>
-                                    {useProductSpecificTax && <th className="px-4 py-3 w-[15%] border-l border-slate-50 tracking-wider text-right">Tax System</th>}
+                                    {isTaxed && useProductSpecificTax && <th className="px-4 py-3 w-[15%] border-l border-slate-50 tracking-wider text-right">Tax System</th>}
                                     <th className={`px-4 py-3 border-l border-slate-50 tracking-wider text-right pr-6 w-[10%]`}>Amount</th>
                                     <th className="w-[5%]"></th>
                                 </tr>
@@ -1203,7 +1203,7 @@ const InvoiceForm = () => {
                                                     </select>
                                                 </div>
                                             </td>
-                                            {useProductSpecificTax && (
+                                            {isTaxed && useProductSpecificTax && (
                                                 <td className="p-3 border-l border-slate-50/50">
                                                     <select
                                                         className="w-full text-xs bg-transparent border-0 border-b border-slate-200 focus:ring-0 focus:border-blue-500 py-1"
