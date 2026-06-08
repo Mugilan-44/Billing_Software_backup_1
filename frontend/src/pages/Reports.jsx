@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { BarChart3, Download, Filter, Calendar, FileText, TrendingUp, IndianRupee, AlertCircle } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
+import html2pdf from 'html2pdf.js';
 
 // ── Column definitions per report type ──────────────────────────────────────────
 const SALES_COLUMNS = [
@@ -149,6 +151,7 @@ const DYNAMIC_REPORTS = [
 ];
 
 const Reports = () => {
+    const { user } = useContext(AuthContext);
     const [reportType, setReportType] = useState('sales');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -156,6 +159,7 @@ const Reports = () => {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [downloadingPdf, setDownloadingPdf] = useState(false);
 
     const getColumns = () => {
         if (reportType === 'sales') return SALES_COLUMNS;
@@ -258,6 +262,33 @@ const Reports = () => {
         window.URL.revokeObjectURL(url);
     };
 
+    const handleExportPDF = () => {
+        setDownloadingPdf(true);
+        const orientation = ['sales', 'gst', 'payments_received', 'expenses_details'].includes(reportType)
+            ? 'landscape'
+            : 'portrait';
+        const element = document.getElementById('pdf-report-template');
+        const opt = {
+            margin:       0.3,
+            filename:     `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: orientation }
+        };
+
+        html2pdf()
+            .set(opt)
+            .from(element)
+            .save()
+            .then(() => {
+                setDownloadingPdf(false);
+            })
+            .catch(err => {
+                console.error('PDF generation error', err);
+                setDownloadingPdf(false);
+            });
+    };
+
     const data = getNormalizedData();
     const columns = getColumns();
 
@@ -274,17 +305,35 @@ const Reports = () => {
                         <p className="text-sm text-slate-500">Data analytics, insights and compliance exports</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleExportCSV}
-                    disabled={data.length === 0}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                        data.length === 0
-                            ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-200'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 active:scale-95 shadow-sm'
-                    }`}
-                >
-                    <Download size={16} /> Export CSV
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleExportCSV}
+                        disabled={data.length === 0}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-bold transition-all ${
+                            data.length === 0
+                                ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-200'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 active:scale-95 shadow-sm'
+                        }`}
+                    >
+                        <Download size={16} /> Export CSV
+                    </button>
+                    <button
+                        onClick={handleExportPDF}
+                        disabled={data.length === 0 || downloadingPdf}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-bold transition-all ${
+                            data.length === 0 || downloadingPdf
+                                ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-200'
+                                : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:scale-95 shadow-md shadow-blue-100'
+                        }`}
+                    >
+                        {downloadingPdf ? (
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Download size={16} />
+                        )}
+                        {downloadingPdf ? 'Generating...' : 'Download PDF'}
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -439,6 +488,122 @@ const Reports = () => {
                         {(startDate || endDate) && ` for period ${startDate || '...'} to ${endDate || '...'}`}
                     </div>
                 )}
+            </div>
+
+            {/* PDF print template */}
+            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                <div id="pdf-report-template" className="bg-white p-8 text-slate-800 font-sans" style={{ width: ['sales', 'gst', 'payments_received', 'expenses_details'].includes(reportType) ? '1050px' : '800px', fontFamily: 'Inter, sans-serif' }}>
+                    {/* Header */}
+                    <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-6">
+                        <div>
+                            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+                                {user?.companyId?.businessName || user?.companyId?.name || 'Prolync Billing'}
+                            </h1>
+                            {user?.companyId?.address && (
+                                <p className="text-xs text-slate-500 font-medium">
+                                    {[
+                                        user.companyId.address.street,
+                                        user.companyId.address.city,
+                                        user.companyId.address.state,
+                                        user.companyId.address.zipCode
+                                    ].filter(Boolean).join(', ')}
+                                </p>
+                            )}
+                            {user?.companyId?.gstNumber && (
+                                <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                                    GSTIN: {user.companyId.gstNumber}
+                                </p>
+                            )}
+                            <div className="mt-4">
+                                <h2 className="text-sm font-bold text-blue-600 uppercase tracking-wide">
+                                    {reportType.replace(/_/g, ' ')} Report
+                                </h2>
+                                <p className="text-[10px] text-slate-400 font-medium">
+                                    Generated on {new Date().toLocaleDateString('en-IN')}
+                                </p>
+                                {(startDate || endDate) && (
+                                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                                        Period: {startDate ? new Date(startDate).toLocaleDateString('en-IN') : 'Beginning'} to {endDate ? new Date(endDate).toLocaleDateString('en-IN') : 'Present'}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        {user?.companyId?.logoUrl ? (
+                            <img src={user.companyId.logoUrl} alt="Logo" className="h-16 w-auto object-contain bg-slate-50 p-1 border border-slate-200 rounded-xl" />
+                        ) : (
+                            <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-xl border border-blue-100">
+                                {(user?.companyId?.businessName || user?.companyId?.name || 'Prolync').slice(0, 2).toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Summary Cards – Sales */}
+                    {summary && reportType === 'sales' && (
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            {[
+                                { label: 'Total Revenue', value: summary.totalRevenue },
+                                { label: 'Total GST Collected', value: summary.totalTax },
+                                { label: 'Total Received', value: summary.totalReceived },
+                                { label: 'Total Outstanding', value: summary.totalPending },
+                            ].map(({ label, value }) => (
+                                <div key={label} className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">{label}</p>
+                                    <h4 className="text-sm font-black text-slate-900">
+                                        ₹{Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </h4>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Summary Cards – GST */}
+                    {summary && reportType === 'gst' && (
+                        <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total GST Collected</p>
+                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.totalOutputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
+                                <p className="text-[9px] text-slate-400 mt-0.5">CGST: ₹{Number(summary.cgstCollected || 0).toFixed(2)} | SGST: ₹{Number(summary.sgstCollected || 0).toFixed(2)} | IGST: ₹{Number(summary.igstCollected || 0).toFixed(2)}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Input Tax Credit (ITC)</p>
+                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.totalInputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Net GST Liability</p>
+                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.netLiability || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Data Table */}
+                    <table className="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden">
+                        <thead>
+                            <tr className="bg-slate-100 border-b border-slate-200" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+                                {columns.map((col, i) => (
+                                    <th key={i} className="px-3 py-2 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                        {col.label}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.map((row, rIdx) => (
+                                <tr key={rIdx} className="border-b border-slate-100" style={{ pageBreakInside: 'avoid' }}>
+                                    {columns.map((col, cIdx) => (
+                                        <td key={cIdx} className="px-3 py-2 text-xs text-slate-600">
+                                            {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '-')}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    
+                    {/* Footer */}
+                    <div className="mt-8 pt-4 border-t border-slate-100 text-center text-[9px] text-slate-400 font-semibold tracking-wider uppercase">
+                        © {new Date().getFullYear()} {user?.companyId?.businessName || user?.companyId?.name || 'Prolync Software Inc'}. All rights reserved.
+                    </div>
+                </div>
             </div>
         </div>
     );
