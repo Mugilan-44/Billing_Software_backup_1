@@ -2,7 +2,8 @@ import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
 import { BarChart3, Download, Filter, Calendar, FileText, TrendingUp, IndianRupee, AlertCircle } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
-import html2pdf from 'html2pdf.js';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 // ── Column definitions per report type ──────────────────────────────────────────
 const SALES_COLUMNS = [
@@ -264,51 +265,249 @@ const Reports = () => {
 
     const handleExportPDF = () => {
         setDownloadingPdf(true);
-        const orientation = ['sales', 'gst', 'payments_received', 'expenses_details'].includes(reportType)
-            ? 'landscape'
-            : 'portrait';
-        const element = document.getElementById('pdf-report-template');
-        if (!element) {
-            setDownloadingPdf(false);
-            return;
-        }
-
-        // Clone the template and place it in the body under a visible-but-layered layout context
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'fixed';
-        tempContainer.style.left = '0';
-        tempContainer.style.top = '0';
-        tempContainer.style.width = orientation === 'landscape' ? '1050px' : '800px';
-        tempContainer.style.zIndex = '-9999';
-        tempContainer.style.background = 'white';
-        tempContainer.style.visibility = 'visible';
-        
-        tempContainer.innerHTML = element.innerHTML;
-        document.body.appendChild(tempContainer);
-
-        const opt = {
-            margin:       0.3,
-            filename:     `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: orientation }
-        };
-
-        html2pdf()
-            .set(opt)
-            .from(tempContainer)
-            .save()
-            .then(() => {
-                document.body.removeChild(tempContainer);
-                setDownloadingPdf(false);
-            })
-            .catch(err => {
-                console.error('PDF generation error', err);
-                if (document.body.contains(tempContainer)) {
-                    document.body.removeChild(tempContainer);
-                }
-                setDownloadingPdf(false);
+        try {
+            const orientation = ['sales', 'gst', 'payments_received', 'expenses_details'].includes(reportType)
+                ? 'landscape'
+                : 'portrait';
+            
+            const doc = new jsPDF({
+                orientation: orientation,
+                unit: 'mm',
+                format: 'a4'
             });
+            
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            let y = 15;
+            
+            const bizName = user?.companyId?.businessName || user?.companyId?.name || 'Prolync Billing';
+            const initials = bizName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            
+            // Logo Badge
+            doc.setFillColor(37, 99, 235); // Blue-600
+            doc.roundedRect(pageWidth - margin - 18, y, 18, 18, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text(initials, pageWidth - margin - 9, y + 10.5, { align: 'center' });
+            
+            // Business details
+            doc.setTextColor(15, 23, 42); // Slate-900
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text(bizName, margin, y + 4);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139); // Slate-500
+            
+            let addressStr = '';
+            if (user?.companyId?.address) {
+                addressStr = [
+                    user.companyId.address.street,
+                    user.companyId.address.city,
+                    user.companyId.address.state,
+                    user.companyId.address.zipCode
+                ].filter(Boolean).join(', ');
+            }
+            
+            let currentHeaderY = y + 9;
+            if (addressStr) {
+                doc.text(addressStr, margin, currentHeaderY);
+                currentHeaderY += 4.5;
+            }
+            
+            if (user?.companyId?.gstNumber) {
+                doc.text(`GSTIN: ${user.companyId.gstNumber}`, margin, currentHeaderY);
+                currentHeaderY += 4.5;
+            }
+            
+            y = Math.max(currentHeaderY + 2, y + 22);
+            
+            // Divider
+            doc.setDrawColor(226, 232, 240); // Slate-200
+            doc.setLineWidth(0.5);
+            doc.line(margin, y, pageWidth - margin, y);
+            y += 8;
+            
+            // Title
+            doc.setTextColor(37, 99, 235); // Blue-600
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            const reportTitle = `${reportType.replace(/_/g, ' ').toUpperCase()} REPORT`;
+            doc.text(reportTitle, margin, y);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(148, 163, 184); // Slate-400
+            doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, pageWidth - margin, y, { align: 'right' });
+            
+            y += 5;
+            doc.setTextColor(100, 116, 139); // Slate-500
+            const periodStr = (startDate || endDate) 
+                ? `Period: ${startDate ? new Date(startDate).toLocaleDateString('en-IN') : 'Beginning'} to ${endDate ? new Date(endDate).toLocaleDateString('en-IN') : 'Present'}`
+                : 'Period: All Time';
+            doc.text(periodStr, margin, y);
+            
+            y += 8;
+            
+            // Summary KPI Blocks
+            if (summary && reportType === 'sales') {
+                const cards = [
+                    { label: 'Total Revenue', value: summary.totalRevenue },
+                    { label: 'Total GST Collected', value: summary.totalTax },
+                    { label: 'Total Received', value: summary.totalReceived },
+                    { label: 'Total Outstanding', value: summary.totalPending },
+                ];
+                
+                const cardWidth = (pageWidth - 2 * margin - 9) / 4;
+                let cardX = margin;
+                
+                doc.setDrawColor(226, 232, 240);
+                doc.setFillColor(248, 250, 252);
+                
+                cards.forEach(c => {
+                    doc.roundedRect(cardX, y, cardWidth, 14, 1.5, 1.5, 'FD');
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(c.label.toUpperCase(), cardX + 3, y + 4.5);
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(9);
+                    doc.setTextColor(15, 23, 42);
+                    doc.text(`Rs. ${Number(c.value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, cardX + 3, y + 10.5);
+                    
+                    cardX += cardWidth + 3;
+                });
+                
+                y += 20;
+            } else if (summary && reportType === 'gst') {
+                const cards = [
+                    { label: 'Total GST Collected', value: summary.totalOutputGst, sub: `CGST: ${Number(summary.cgstCollected || 0).toFixed(2)} | SGST: ${Number(summary.sgstCollected || 0).toFixed(2)} | IGST: ${Number(summary.igstCollected || 0).toFixed(2)}` },
+                    { label: 'Input Tax Credit (ITC)', value: summary.totalInputGst, sub: '' },
+                    { label: 'Net GST Liability', value: summary.netLiability, sub: Number(summary.netLiability || 0) >= 0 ? 'Payable to Govt.' : 'Tax Credit Available' },
+                ];
+                
+                const cardWidth = (pageWidth - 2 * margin - 6) / 3;
+                let cardX = margin;
+                
+                doc.setDrawColor(226, 232, 240);
+                doc.setFillColor(248, 250, 252);
+                
+                cards.forEach(c => {
+                    doc.roundedRect(cardX, y, cardWidth, 16, 1.5, 1.5, 'FD');
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(c.label.toUpperCase(), cardX + 3, y + 4.5);
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(9);
+                    doc.setTextColor(15, 23, 42);
+                    doc.text(`Rs. ${Number(c.value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, cardX + 3, y + 9.5);
+                    
+                    if (c.sub) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(6);
+                        doc.setTextColor(148, 163, 184);
+                        doc.text(c.sub, cardX + 3, y + 13.5);
+                    }
+                    
+                    cardX += cardWidth + 3;
+                });
+                
+                y += 22;
+            }
+            
+            // Format Cells helper
+            const getCellText = (key, val, row) => {
+                if (val === undefined || val === null) return '-';
+                
+                const currencyFields = [
+                    'subTotal', 'taxAmount', 'totalSales', 'amount', 'totalExpense', 
+                    'taxableValue', 'cgst', 'sgst', 'igst', 'totalTax', 
+                    'bucket_0_30', 'bucket_31_60', 'bucket_61_90', 'bucket_90_plus', 
+                    'totalOutstanding', 'subtotal', 'grandTotal', 'amountPaid', 'balanceDue',
+                    'tax'
+                ];
+                
+                if (currencyFields.includes(key)) {
+                    return `Rs. ${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                }
+                
+                if (key === 'date') {
+                    return val ? new Date(val).toLocaleDateString('en-IN') : '-';
+                }
+                
+                if (key === 'balanceDue') {
+                    const bal = Number(val || 0) || Math.max(0, Number(row.grandTotal || 0) - Number(row.amountPaid || 0));
+                    return `Rs. ${bal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                }
+                
+                return String(val);
+            };
+            
+            // Columns and Rows for table
+            const tableCols = columns.map(c => c.label);
+            const tableRows = data.map(row => 
+                columns.map(c => getCellText(c.key, row[c.key], row))
+            );
+            
+            doc.autoTable({
+                head: [tableCols],
+                body: tableRows,
+                startY: y,
+                margin: { left: margin, right: margin },
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2.5,
+                    lineColor: [241, 245, 249],
+                    lineWidth: 0.1,
+                    font: 'helvetica',
+                    textColor: [71, 85, 105],
+                },
+                headStyles: {
+                    fillColor: [248, 250, 252],
+                    textColor: [71, 85, 105],
+                    fontStyle: 'bold',
+                    fontSize: 7.5,
+                    lineWidth: 0.1,
+                    lineColor: [226, 232, 240],
+                },
+                alternateRowStyles: {
+                    fillColor: [255, 255, 255]
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', textColor: [15, 23, 42] }
+                }
+            });
+            
+            // Draw Header/Footer details on all pages
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7.5);
+                doc.setTextColor(148, 163, 184);
+                
+                // Add page number at bottom center
+                doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+                
+                // Add copyright at bottom left
+                const copyright = `(c) ${new Date().getFullYear()} ${bizName}`;
+                doc.text(copyright, margin, pageHeight - 8);
+            }
+            
+            doc.save(`${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (err) {
+            console.error('PDF generation error', err);
+        } finally {
+            setDownloadingPdf(false);
+        }
     };
 
     const data = getNormalizedData();
@@ -510,122 +709,6 @@ const Reports = () => {
                         {(startDate || endDate) && ` for period ${startDate || '...'} to ${endDate || '...'}`}
                     </div>
                 )}
-            </div>
-
-            {/* PDF print template */}
-            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                <div id="pdf-report-template" className="bg-white p-8 text-slate-800 font-sans" style={{ width: ['sales', 'gst', 'payments_received', 'expenses_details'].includes(reportType) ? '1050px' : '800px', fontFamily: 'Inter, sans-serif' }}>
-                    {/* Header */}
-                    <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-6">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
-                                {user?.companyId?.businessName || user?.companyId?.name || 'Prolync Billing'}
-                            </h1>
-                            {user?.companyId?.address && (
-                                <p className="text-xs text-slate-500 font-medium">
-                                    {[
-                                        user.companyId.address.street,
-                                        user.companyId.address.city,
-                                        user.companyId.address.state,
-                                        user.companyId.address.zipCode
-                                    ].filter(Boolean).join(', ')}
-                                </p>
-                            )}
-                            {user?.companyId?.gstNumber && (
-                                <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                                    GSTIN: {user.companyId.gstNumber}
-                                </p>
-                            )}
-                            <div className="mt-4">
-                                <h2 className="text-sm font-bold text-blue-600 uppercase tracking-wide">
-                                    {reportType.replace(/_/g, ' ')} Report
-                                </h2>
-                                <p className="text-[10px] text-slate-400 font-medium">
-                                    Generated on {new Date().toLocaleDateString('en-IN')}
-                                </p>
-                                {(startDate || endDate) && (
-                                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
-                                        Period: {startDate ? new Date(startDate).toLocaleDateString('en-IN') : 'Beginning'} to {endDate ? new Date(endDate).toLocaleDateString('en-IN') : 'Present'}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        {user?.companyId?.logoUrl ? (
-                            <img src={user.companyId.logoUrl} alt="Logo" className="h-16 w-auto object-contain bg-slate-50 p-1 border border-slate-200 rounded-xl" />
-                        ) : (
-                            <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-xl border border-blue-100">
-                                {(user?.companyId?.businessName || user?.companyId?.name || 'Prolync').slice(0, 2).toUpperCase()}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Summary Cards – Sales */}
-                    {summary && reportType === 'sales' && (
-                        <div className="grid grid-cols-4 gap-4 mb-6">
-                            {[
-                                { label: 'Total Revenue', value: summary.totalRevenue },
-                                { label: 'Total GST Collected', value: summary.totalTax },
-                                { label: 'Total Received', value: summary.totalReceived },
-                                { label: 'Total Outstanding', value: summary.totalPending },
-                            ].map(({ label, value }) => (
-                                <div key={label} className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">{label}</p>
-                                    <h4 className="text-sm font-black text-slate-900">
-                                        ₹{Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </h4>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Summary Cards – GST */}
-                    {summary && reportType === 'gst' && (
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total GST Collected</p>
-                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.totalOutputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
-                                <p className="text-[9px] text-slate-400 mt-0.5">CGST: ₹{Number(summary.cgstCollected || 0).toFixed(2)} | SGST: ₹{Number(summary.sgstCollected || 0).toFixed(2)} | IGST: ₹{Number(summary.igstCollected || 0).toFixed(2)}</p>
-                            </div>
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Input Tax Credit (ITC)</p>
-                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.totalInputGst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
-                            </div>
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Net GST Liability</p>
-                                <h4 className="text-sm font-black text-slate-900 mt-1">₹{Number(summary.netLiability || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h4>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Data Table */}
-                    <table className="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden">
-                        <thead>
-                            <tr className="bg-slate-100 border-b border-slate-200" style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-                                {columns.map((col, i) => (
-                                    <th key={i} className="px-3 py-2 text-[9px] font-black text-slate-500 uppercase tracking-wider">
-                                        {col.label}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((row, rIdx) => (
-                                <tr key={rIdx} className="border-b border-slate-100" style={{ pageBreakInside: 'avoid' }}>
-                                    {columns.map((col, cIdx) => (
-                                        <td key={cIdx} className="px-3 py-2 text-xs text-slate-600">
-                                            {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '-')}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    
-                    {/* Footer */}
-                    <div className="mt-8 pt-4 border-t border-slate-100 text-center text-[9px] text-slate-400 font-semibold tracking-wider uppercase">
-                        © {new Date().getFullYear()} {user?.companyId?.businessName || user?.companyId?.name || 'Prolync Software Inc'}. All rights reserved.
-                    </div>
-                </div>
             </div>
         </div>
     );

@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { API_URL } from '../utils/api';
 import { ArrowLeft, Download, Share2, Printer, Edit, Trash2, Mail, Copy } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
 import { useToast } from '../context/ToastContext';
 import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
