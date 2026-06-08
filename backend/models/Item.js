@@ -30,7 +30,7 @@ const itemSchema = new mongoose.Schema({
   // Canonical fields (new code)
   hsnCode: { type: String, trim: true },
   gstPercent: { type: Number, default: 0 },
-  availableStock: { type: Number, default: 0 },
+  availableStock: { type: Number, default: 1, min: [1, 'Stock must be at least 1'] },
   lowStockThreshold: { type: Number, default: 5 },
   trackStock: {
     type: Boolean,
@@ -44,7 +44,7 @@ const itemSchema = new mongoose.Schema({
   // Legacy fields (backward compat)
   hsnSacCode: { type: String, trim: true },
   gstPercentage: { type: Number, default: 0 },
-  stockQuantity: { type: Number, default: 0 },
+  stockQuantity: { type: Number, default: 1, min: [1, 'Stock must be at least 1'] },
   lowStockAlert: { type: Number, default: 5 },
 
   purchasePrice: { type: Number, default: 0 },

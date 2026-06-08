@@ -57,7 +57,7 @@ export const recordPayment = async (req, res) => {
         throw new Error(`Payment ₹${payAmount} exceeds balance due ₹${balanceDue.toFixed(2)}`);
       }
 
-      const paymentNumber = await getNextSequenceValue('payment', 'PMT');
+      const paymentNumber = await getNextSequenceValue('payment', 'PMT', req.user.companyId);
       const payDate = parseUTC(date) || new Date();
 
       const payment = new Payment({
@@ -138,7 +138,7 @@ export const recordPayment = async (req, res) => {
     if (!customer) throw new Error('Customer not found');
 
     const settings     = await CompanySettings.findOne({ companyId: req.user.companyId || null });
-    const paymentNumber = await getNextSequenceValue('payment', 'PMT');
+    const paymentNumber = await getNextSequenceValue('payment', 'PMT', req.user.companyId);
     const payDate      = parseUTC(paymentDate) || new Date();
     const payAmount    = round(Number(amount));
 

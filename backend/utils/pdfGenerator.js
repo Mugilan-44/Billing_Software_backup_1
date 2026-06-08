@@ -2,6 +2,34 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import QRCode from 'qrcode';
+import { fileURLToPath } from 'url';
+
+const getAbsoluteUploadPath = (relativePath) => {
+    if (!relativePath) return '';
+    const clean = relativePath.replace(/^\/+/, '');
+    
+    // Check 1: Relative to process.cwd()
+    let abs = path.join(process.cwd(), clean);
+    if (fs.existsSync(abs)) return abs;
+    
+    // Check 2: Nested under 'backend' (if running from workspace root)
+    abs = path.join(process.cwd(), 'backend', clean);
+    if (fs.existsSync(abs)) return abs;
+    
+    // Check 3: Relative to this file's folder (backend/utils/) going up one level
+    try {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        abs = path.join(__dirname, '..', clean);
+        if (fs.existsSync(abs)) return abs;
+    } catch (e) {
+        console.error('[PDF Gen] fileURLToPath error:', e);
+    }
+    
+    // Fallback
+    return path.join(process.cwd(), clean);
+};
+
 
 const formatCustomerAddress = (addr, flatFallback) => {
     if (!addr) return flatFallback || '';
@@ -95,10 +123,12 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                     } else {
                         relativeLogoPath = relativeLogoPath.replace(/^\/+/, '');
                     }
-                    const logoPath = path.join(process.cwd(), relativeLogoPath);
+                    const logoPath = getAbsoluteUploadPath(relativeLogoPath);
                     if (fs.existsSync(logoPath)) {
                         doc.image(logoPath, 237, currentY, { width: 120, height: 50, fit: [120, 50], align: 'center' });
                         currentY += 60;
+                    } else {
+                        console.warn(`[PDF Gen] Classic template logo not found at: ${logoPath}`);
                     }
                 }
                 doc.fillColor('#0f172a').font(fontBold).fontSize(20).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { align: 'center', width: 495 });
@@ -154,10 +184,12 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                     } else {
                         relativeLogoPath = relativeLogoPath.replace(/^\/+/, '');
                     }
-                    const logoPath = path.join(process.cwd(), relativeLogoPath);
+                    const logoPath = getAbsoluteUploadPath(relativeLogoPath);
                     if (fs.existsSync(logoPath)) {
                         doc.image(logoPath, 50, currentY, { width: 120, height: 60, fit: [120, 60], align: 'left' });
                         currentY += 70;
+                    } else {
+                        console.warn(`[PDF Gen] Modern template logo not found at: ${logoPath}`);
                     }
                 }
                 doc.font(fontBold).fontSize(16).fillColor(accentColor).text(settings?.companyName || 'Transport Billing & Accounting', 50, currentY, { width: 240 });
@@ -587,14 +619,16 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                     } else {
                         relativeQrPath = relativeQrPath.replace(/^\/+/, '');
                     }
-                    const qrPath = path.join(process.cwd(), relativeQrPath);
+                    const qrPath = getAbsoluteUploadPath(relativeQrPath);
                     if (fs.existsSync(qrPath)) {
                         doc.image(qrPath, 230, startTotalsY, { width: 75, height: 75 });
                         doc.fontSize(8).fillColor('#64748b').font(fontRegular).text('Scan to Pay (UPI)', 220, startTotalsY + 80, { width: 95, align: 'center' });
                         qrCodeDrawn = true;
+                    } else {
+                        console.warn(`[PDF Gen] Custom UPI QR image not found at: ${qrPath}`);
                     }
                 } catch (error) {
-                    console.error('Failed to draw custom QR code:', error);
+                    console.error('[PDF Gen] Failed to draw custom QR code:', error);
                 }
             }
 
@@ -616,6 +650,8 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                     } catch (error) {
                         console.error('QR Generation failed:', error);
                     }
+                } else {
+                    console.warn('[PDF Gen] UPI QR is enabled but custom QR image was not resolved, and upiId / bank details are not configured for dynamic generation.');
                 }
             }
 
@@ -734,12 +770,14 @@ export const generateStandardPDF = async (docTitle, docType, invoice, customer, 
                         } else {
                             relativeSigPath = relativeSigPath.replace(/^\/+/, '');
                         }
-                        const sigPath = path.join(process.cwd(), relativeSigPath);
+                        const sigPath = getAbsoluteUploadPath(relativeSigPath);
                         if (fs.existsSync(sigPath)) {
                             doc.image(sigPath, signatureX + 10, currentY + 22, { width: 175, height: 35, fit: [175, 35] });
+                        } else {
+                            console.warn(`[PDF Gen] Signature image not found at: ${sigPath}`);
                         }
                     } catch (e) {
-                        // Leave blank space
+                        console.error('[PDF Gen] Failed to draw signature:', e);
                     }
                 }
                 doc.fillColor('#64748b').font(fontRegular).fontSize(8).text('Authorized Signature', signatureX + 10, currentY + 60);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from '../utils/api';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Settings, Search, Plus, Trash2, Save, Info } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import QuickCustomerModal from '../components/QuickCustomerModal';
@@ -24,6 +24,8 @@ const InvoiceForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const isEdit = Boolean(id);
+    const [searchParams] = useSearchParams();
+    const quoteId = searchParams.get('quoteId');
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -198,8 +200,90 @@ const InvoiceForm = () => {
         fetchSettings();
         if (isEdit) {
             fetchInvoice();
+        } else if (quoteId) {
+            fetchQuotation();
         }
-    }, [id]);
+    }, [id, quoteId]);
+
+    const fetchQuotation = async () => {
+        try {
+            const res = await axios.get(`/api/quotations/${quoteId}`);
+            const data = res.data.data;
+            setCustomerId(data.customerId?._id || data.customerId);
+            
+            // Populate billing/shipping addresses from customer details
+            const customerObj = data.customerId;
+            if (customerObj) {
+                if (customerObj.billingAddress) {
+                    const street1 = customerObj.billingAddress.street1 || customerObj.billingAddress.street || '';
+                    const street2 = customerObj.billingAddress.street2 || '';
+                    const city = customerObj.billingAddress.city || '';
+                    const state = customerObj.billingAddress.state || '';
+                    const zip = customerObj.billingAddress.zip || customerObj.billingAddress.zipCode || '';
+                    const country = customerObj.billingAddress.country || 'India';
+                    
+                    const parts = [
+                        street1,
+                        street2,
+                        [city, state, zip].filter(Boolean).join(', '),
+                        country
+                    ].filter(Boolean);
+                    
+                    setBillingAddress(parts.join('\n'));
+                }
+                if (customerObj.shippingAddress) {
+                    const sStreet1 = customerObj.shippingAddress.street1 || customerObj.shippingAddress.street || '';
+                    const sStreet2 = customerObj.shippingAddress.street2 || '';
+                    const sCity = customerObj.shippingAddress.city || '';
+                    const sState = customerObj.shippingAddress.state || '';
+                    const sZip = customerObj.shippingAddress.zip || customerObj.shippingAddress.zipCode || '';
+                    const sCountry = customerObj.shippingAddress.country || 'India';
+                    
+                    const sParts = [
+                        sStreet1,
+                        sStreet2,
+                        [sCity, sState, sZip].filter(Boolean).join(', '),
+                        sCountry
+                    ].filter(Boolean);
+                    
+                    setShippingAddress(sParts.join('\n'));
+                }
+            }
+            
+            setNotes(data.notes || 'Thanks for your business.');
+            setTermsAndConditions(data.termsAndConditions || 'Enter the terms and conditions of your business to be displayed in your transaction');
+            setTaxMode(data.taxMode || 'WITH_TAX');
+            setIsTaxed(data.isTaxed !== false);
+            setTaxType(data.taxType || 'GST');
+            setIncludeTerms(data.includeTerms !== false);
+            setIncludeSignature(data.includeSignature === true);
+            setIncludeBankDetails(data.includeBankDetails !== false);
+            setIncludeUpiQr(data.includeUpiQr !== false);
+            if (data.taxRate === null || data.taxRate === undefined) {
+                setUseProductSpecificTax(true);
+                setTaxRate('');
+            } else {
+                setUseProductSpecificTax(false);
+                setTaxRate(data.taxRate);
+            }
+            setTdsTcsType(data.tdsTcsType || 'None');
+            setTdsPercentage(data.tdsPercentage || 0);
+            setTcsPercentage(data.tcsPercentage || 0);
+            if (data.items?.length > 0) {
+                setItems(data.items.map(i => ({
+                    itemId: i.itemId?._id || i.itemId || '',
+                    description: i.description || '',
+                    quantity: i.quantity || 1,
+                    rate: i.rate || 0,
+                    discountType: '%',
+                    discount: i.discount || 0,
+                    taxGst: i.gstPercentage || i.gstPercent || 0
+                })));
+            }
+        } catch (err) {
+            console.error('Error fetching quotation for invoice prefill', err);
+        }
+    };
 
     const fetchSettings = async () => {
         try {

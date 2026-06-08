@@ -64,13 +64,12 @@ const Items = () => {
                             <tr>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name & SKU</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Selling Price</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Tax</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Avail. Stock</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {loading ? <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td></tr> :
+                            {loading ? <tr><td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td></tr> :
                                 filteredItems.map(item => (
                                     <tr key={item._id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4">
@@ -78,11 +77,6 @@ const Items = () => {
                                             <div className="text-xs text-gray-500 font-mono">SKU: {item.sku || 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{(item.sellingPrice || 0).toFixed(2)}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                                {item.taxRate !== undefined ? item.taxRate : (item.gstPercentage || item.gstPercent || 0)}% ({item.taxType || 'GST'})
-                                            </span>
-                                        </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="text-sm font-bold text-gray-900">
                                                 {item.trackStock !== false ? (item.availableStock ?? item.stockQuantity ?? 0) : 'Not tracked'}

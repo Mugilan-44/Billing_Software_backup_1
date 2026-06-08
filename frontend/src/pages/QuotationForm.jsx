@@ -488,12 +488,18 @@ const QuotationForm = () => {
                 status: type === 'draft' ? 'Draft' : 'Sent'
             };
 
+            let res;
             if (isEdit) {
-                await axios.put(`/api/quotations/${id}`, payload);
+                res = await axios.put(`/api/quotations/${id}`, payload);
             } else {
-                await axios.post('/api/quotations', payload);
+                res = await axios.post('/api/quotations', payload);
             }
-            navigate('/quotations');
+            const newQuote = res.data?.data;
+            if (!isEdit && newQuote && window.confirm('Quotation saved successfully! Do you want to convert it to an Invoice?')) {
+                navigate(`/invoices/new?quoteId=${newQuote._id}`);
+            } else {
+                navigate('/quotations');
+            }
         } catch (err) {
             setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} quotation`);
             setLoading(false);

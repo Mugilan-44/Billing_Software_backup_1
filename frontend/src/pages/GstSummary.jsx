@@ -5,10 +5,12 @@ import { PieChart, TrendingUp, TrendingDown, IndianRupee, Printer, Percent, Shie
 const GstSummary = () => {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [filterType, setFilterType] = useState('All');
     const [dates, setDates] = useState({
         startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0]
     });
+    const [inputDates, setInputDates] = useState({ ...dates });
 
     useEffect(() => {
         fetchGstSummary();
@@ -26,6 +28,10 @@ const GstSummary = () => {
         }
     };
 
+    const handleShowResults = () => {
+        setDates(inputDates);
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -38,6 +44,11 @@ const GstSummary = () => {
             </div>
         );
     }
+
+    const displayedTransactions = (summary?.transactions || []).filter(t => {
+        if (filterType === 'All') return true;
+        return t.type === filterType;
+    });
 
     return (
         <div className="max-w-7xl mx-auto mb-12">
@@ -55,10 +66,16 @@ const GstSummary = () => {
 
                 <div className="flex items-center gap-3">
                     <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:border-blue-500 transition-colors">
-                        <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={dates.startDate} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
+                        <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={inputDates.startDate} onChange={e => setInputDates({ ...inputDates, startDate: e.target.value })} />
                         <span className="text-slate-300 mx-2 text-xs font-bold uppercase">to</span>
-                        <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={dates.endDate} onChange={e => setDates({ ...dates, endDate: e.target.value })} />
+                        <input type="date" className="bg-transparent text-sm font-bold text-slate-700 outline-none w-32" value={inputDates.endDate} onChange={e => setInputDates({ ...inputDates, endDate: e.target.value })} />
                     </div>
+                    <button
+                        onClick={handleShowResults}
+                        className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-sm shadow-sm active:scale-95"
+                    >
+                        Show
+                    </button>
                     <button
                         onClick={handlePrint}
                         className="btn-secondary bg-white text-slate-700 hover:bg-slate-50 px-6 py-2.5 rounded-xl border border-slate-200 flex items-center gap-2 shadow-sm font-bold active:scale-95 transition-all text-sm"
@@ -125,15 +142,29 @@ const GstSummary = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Tax Mapping Transactions</h3>
-                    <div className="flex gap-2">
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded text-[9px] font-black text-blue-600 border border-blue-100">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> OUTPUT
-                        </div>
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded text-[9px] font-black text-sky-600 border border-sky-100">
-                            <div className="w-1.5 h-1.5 bg-sky-500 rounded-full"></div> INPUT
-                        </div>
+                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                        <button
+                            onClick={() => setFilterType('All')}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${filterType === 'All' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setFilterType('Output')}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${filterType === 'Output' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                        >
+                            <div className={`w-1.5 h-1.5 rounded-full ${filterType === 'Output' ? 'bg-white' : 'bg-blue-500'}`}></div>
+                            Sales (Output)
+                        </button>
+                        <button
+                            onClick={() => setFilterType('Input')}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${filterType === 'Input' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                        >
+                            <div className={`w-1.5 h-1.5 rounded-full ${filterType === 'Input' ? 'bg-white' : 'bg-sky-500'}`}></div>
+                            Purchases (Input)
+                        </button>
                     </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -149,7 +180,7 @@ const GstSummary = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {(!summary?.transactions || summary.transactions.length === 0) ? (
+                            {(!displayedTransactions || displayedTransactions.length === 0) ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3">
@@ -157,12 +188,12 @@ const GstSummary = () => {
                                                 <Percent size={32} />
                                             </div>
                                             <h3 className="text-base font-bold text-slate-900 tracking-tight">No Transactions Recorded</h3>
-                                            <p className="text-xs text-slate-500 max-w-sm mx-auto">Either you are in a new tax period or no GST applicable data was found for these dates.</p>
+                                            <p className="text-xs text-slate-500 max-w-sm mx-auto">Either you are in a new tax period or no GST applicable data was found for these filter settings.</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
-                                (Array.isArray(summary.transactions) ? summary.transactions : []).map(t => (
+                                (Array.isArray(displayedTransactions) ? displayedTransactions : []).map(t => (
                                     <tr key={t.id} className="hover:bg-slate-50/50 transition-colors cursor-default">
                                         <td className="px-6 py-5 text-xs font-bold text-slate-500">{t.date}</td>
                                         <td className="px-6 py-5 whitespace-nowrap">

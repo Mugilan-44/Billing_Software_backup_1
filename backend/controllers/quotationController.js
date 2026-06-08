@@ -182,7 +182,7 @@ export const convertToSalesOrder = async (req, res) => {
     if (quotation.status === 'Converted') throw new Error('Already converted to a sales order');
     if (quotation.status === 'Rejected')  throw new Error('Cannot convert a rejected quotation');
 
-    const orderNumber = await getNextSequenceValue('salesOrder', 'SO');
+    const orderNumber = await getNextSequenceValue('salesOrder', 'SO', quotation.companyId);
 
     // Use lineItems if available (new schema), else fall back to items (legacy schema)
     const sourceLineItems = quotation.lineItems?.length ? quotation.lineItems : quotation.items;

@@ -1,9 +1,10 @@
 import Counter from '../models/Counter.model.js';
 import CompanySettings from '../models/CompanySettings.js';
 
-export async function getNextSequenceValue(sequenceName, prefix) {
+export async function getNextSequenceValue(sequenceName, prefix, companyId) {
+  const query = companyId ? { id: `${sequenceName}_${companyId}` } : { id: sequenceName };
   const counter = await Counter.findOneAndUpdate(
-    { id: sequenceName },
+    query,
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   );

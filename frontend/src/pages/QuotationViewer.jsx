@@ -266,6 +266,12 @@ const QuotationViewer = () => {
                         </button>
                     )}
 
+                    {quote.status !== 'Rejected' && (
+                        <button onClick={() => navigate(`/invoices/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
+                            <ClipboardList size={18} /> Convert to Invoice
+                        </button>
+                    )}
+
                     <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all">
                         <Share2 size={18} /> Share
                     </button>

@@ -27,11 +27,11 @@ const ItemForm = () => {
         unit: 'pcs',
         sellingPrice: 0,
         purchasePrice: 0,
-        gstPercentage: 18,
+        gstPercentage: 0,
         taxType: 'GST',
-        taxRate: 18,
+        taxRate: 0,
         hsnSacCode: '',
-        availableStock: 0,
+        availableStock: 1,
         lowStockAlert: 5,
         description: ''
     });
@@ -80,6 +80,10 @@ const ItemForm = () => {
         if (!form.name.trim()) return setError('Item Name is required');
         if (!form.sellingPrice || Number(form.sellingPrice) <= 0) {
             setError('Selling Price (Item Rate) is required and must be greater than 0');
+            return;
+        }
+        if (form.availableStock === undefined || form.availableStock === null || Number(form.availableStock) < 1) {
+            setError('Available Stock is required and must be at least 1');
             return;
         }
 
@@ -259,77 +263,7 @@ const ItemForm = () => {
                         </div>
                     </InputRow>
 
-                    <InputRow label="Tax System" required>
-                        <select
-                            className="input-field max-w-xs"
-                            value={form.taxType}
-                            onChange={e => {
-                                const newType = e.target.value;
-                                const defaultRate = TAX_PRESETS[newType]?.[0] || 0;
-                                setForm(prev => ({
-                                    ...prev,
-                                    taxType: newType,
-                                    taxRate: defaultRate,
-                                    gstPercentage: defaultRate
-                                }));
-                            }}
-                        >
-                            <option value="GST">GST (Goods & Services Tax)</option>
-                            <option value="VAT">VAT (Value Added Tax)</option>
-                            <option value="Sales Tax">Sales Tax</option>
-                            <option value="Custom">Custom Tax System</option>
-                        </select>
-                    </InputRow>
 
-                    {form.taxType !== 'Custom' && (
-                        <InputRow label="Tax Rate Preset">
-                            <div className="flex items-center gap-3">
-                                <select
-                                    className="input-field w-40"
-                                    value={TAX_PRESETS[form.taxType]?.includes(form.taxRate) ? form.taxRate : 'custom'}
-                                    onChange={e => {
-                                        const val = e.target.value;
-                                        if (val !== 'custom') {
-                                            const numVal = Number(val);
-                                            setForm(prev => ({
-                                                ...prev,
-                                                taxRate: numVal,
-                                                gstPercentage: numVal
-                                            }));
-                                        }
-                                    }}
-                                >
-                                    {TAX_PRESETS[form.taxType]?.map(rate => (
-                                        <option key={rate} value={rate}>{rate}%</option>
-                                    ))}
-                                    <option value="custom">Other / Custom</option>
-                                </select>
-                                <span className="text-xs text-slate-500 italic">Select from standard {form.taxType} rates</span>
-                            </div>
-                        </InputRow>
-                    )}
-
-                    <InputRow label="Tax Percentage (%)" required>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                className="input-field w-32"
-                                value={form.taxRate}
-                                onChange={e => {
-                                    const numVal = Number(e.target.value);
-                                    setForm(prev => ({
-                                        ...prev,
-                                        taxRate: numVal,
-                                        gstPercentage: numVal
-                                    }));
-                                }}
-                            />
-                            <span className="text-xs text-slate-500 italic">Specify the exact tax rate (fully changeable)</span>
-                        </div>
-                    </InputRow>
 
                     <InputRow label="Available Stock">
                         <div className="flex items-center gap-3">
