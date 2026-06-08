@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import axios from '../utils/api';
 import {
     Search, LogOut, ShieldCheck, Sliders,
-    ChevronDown, User, GitBranch, CreditCard, Menu, Sparkles, LifeBuoy
+    ChevronDown, User, GitBranch, CreditCard, Menu, Sparkles, LifeBuoy,
+    Percent, Layers
 } from 'lucide-react';
 
 const Topbar = () => {
@@ -13,6 +14,48 @@ const Topbar = () => {
     const [taxDropdownOpen, setTaxDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
     const taxModeDropdownRef = useRef(null);
+    const [animationMode, setAnimationMode] = useState(null);
+
+    const triggerModeTransition = (mode) => {
+        setTaxSystemMode(mode);
+        setTaxDropdownOpen(false);
+        
+        let label = 'Combined';
+        if (mode === 'WITH_TAX') label = 'Tax';
+        if (mode === 'WITHOUT_TAX') label = 'Tax Free';
+        
+        setAnimationMode(label);
+        setTimeout(() => {
+            setAnimationMode(null);
+        }, 1200);
+    };
+
+    const animationConfigs = {
+        'Combined': {
+            bg: 'bg-blue-50/50',
+            borderColor: 'border-blue-200/60',
+            glowColor: 'rgba(37,99,235,0.4)',
+            title: 'Entering Combined Mode',
+            subtitle: 'Activating unified tax & standard invoicing view.',
+            icon: <Sparkles className="w-8 h-8 text-blue-600 animate-pulse" />
+        },
+        'Tax': {
+            bg: 'bg-rose-50/50',
+            borderColor: 'border-rose-200/60',
+            glowColor: 'rgba(220,38,38,0.4)',
+            title: 'Entering Tax Mode',
+            subtitle: 'Activating itemized GST and tax calculations view.',
+            icon: <Percent className="w-8 h-8 text-rose-600" />
+        },
+        'Tax Free': {
+            bg: 'bg-emerald-50/50',
+            borderColor: 'border-emerald-200/60',
+            glowColor: 'rgba(16,163,74,0.4)',
+            title: 'Entering Tax-Free Mode',
+            subtitle: 'Hiding tax fields for a clean, tax-exempt invoice view.',
+            icon: <ShieldCheck className="w-8 h-8 text-emerald-600" />
+        }
+    };
 
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ customers: [], invoices: [] });
@@ -204,19 +247,19 @@ const Topbar = () => {
                             <div className="dropdown-panel" style={{ minWidth: '180px' }}>
                                 <div className="dropdown-item-section">System Mode</div>
                                 <button
-                                    onClick={() => { setTaxSystemMode('OVERALL'); setTaxDropdownOpen(false); }}
+                                    onClick={() => triggerModeTransition('OVERALL')}
                                     className={`dropdown-item ${taxSystemMode === 'OVERALL' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
                                     Combined
                                 </button>
                                 <button
-                                    onClick={() => { setTaxSystemMode('WITH_TAX'); setTaxDropdownOpen(false); }}
+                                    onClick={() => triggerModeTransition('WITH_TAX')}
                                     className={`dropdown-item ${taxSystemMode === 'WITH_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
                                     Tax
                                 </button>
                                 <button
-                                    onClick={() => { setTaxSystemMode('WITHOUT_TAX'); setTaxDropdownOpen(false); }}
+                                    onClick={() => triggerModeTransition('WITHOUT_TAX')}
                                     className={`dropdown-item ${taxSystemMode === 'WITHOUT_TAX' ? 'text-blue-600 font-bold bg-blue-50/50' : ''}`}
                                 >
                                     Tax Free
@@ -325,6 +368,65 @@ const Topbar = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Tax Mode transition overlay animation */}
+            {animationMode && (() => {
+                const config = animationConfigs[animationMode];
+                return (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/45 animate-backdrop-in">
+                        <div 
+                            className="bg-white rounded-3xl border p-8 max-w-sm w-full mx-4 flex flex-col items-center text-center shadow-2xl animate-card-in"
+                            style={{
+                                borderColor: config.borderColor,
+                                boxShadow: `0 20px 40px -15px rgba(0,0,0,0.1), 0 0 40px ${config.glowColor}`
+                            }}
+                        >
+                            <div className={`p-4 rounded-2xl ${config.bg} mb-4 border border-slate-100/50 flex items-center justify-center`}>
+                                {config.icon}
+                            </div>
+                            
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                                {config.title}
+                            </h3>
+                            <p className="text-xs text-slate-450 font-medium mt-2 leading-relaxed">
+                                {config.subtitle}
+                            </p>
+
+                            <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden mt-6">
+                                <div 
+                                    className="h-full bg-current rounded-full"
+                                    style={{
+                                        color: `var(--primary-600)`,
+                                        width: '100%',
+                                        animation: 'progressFill 1.2s linear forwards'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <style>{`
+                            @keyframes backdropFadeIn {
+                                from { opacity: 0; backdrop-filter: blur(0px); }
+                                to { opacity: 1; backdrop-filter: blur(12px); }
+                            }
+                            @keyframes cardSpringIn {
+                                0% { transform: scale(0.9) translateY(10px); opacity: 0; }
+                                70% { transform: scale(1.03) translateY(-2px); opacity: 1; }
+                                100% { transform: scale(1) translateY(0); opacity: 1; }
+                            }
+                            @keyframes progressFill {
+                                from { width: 0%; }
+                                to { width: 100%; }
+                            }
+                            .animate-backdrop-in {
+                                animation: backdropFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                            }
+                            .animate-card-in {
+                                animation: cardSpringIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                            }
+                        `}</style>
+                    </div>
+                );
+            })()}
         </header>
     );
 };
