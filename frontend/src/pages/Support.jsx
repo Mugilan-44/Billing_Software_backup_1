@@ -7,7 +7,7 @@ const Support = () => {
 
     const handleSupportClick = () => {
         // Automatically opens Gmail compose window with to address filled
-        const gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&to=contact@prolync.in&su=Support%20Request%20-%20Prolync%20Billing";
+        const gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&to=support@prolync.in&su=Support%20Request%20-%20Prolync%20Billing";
         window.open(gmailUrl, '_blank');
     };
 
@@ -47,8 +47,8 @@ const Support = () => {
                         </div>
                         <h3 className="text-sm font-bold text-slate-800 tracking-tight uppercase mb-1">Email</h3>
                         <p className="text-xs text-slate-400 mb-4">24/7 Professional ticketing</p>
-                        <a href="mailto:contact@prolyn.in" className="text-sm font-bold text-slate-900 hover:text-emerald-600 transition-colors">
-                            contact@prolyn.in
+                        <a href="mailto:support@prolync.in" className="text-sm font-bold text-slate-900 hover:text-emerald-600 transition-colors">
+                            support@prolync.in
                         </a>
                     </div>
                 </div>

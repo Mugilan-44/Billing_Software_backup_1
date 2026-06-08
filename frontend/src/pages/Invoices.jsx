@@ -34,11 +34,7 @@ const Invoices = () => {
         window.location.href = `/api/invoices/${id}/download?token=${token}`;
     };
 
-    const handleShareWhatsApp = (invoice) => {
-        const link = `${window.location.origin}/public/invoice/${invoice._id}`;
-        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${(invoice.grandTotal || 0).toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
 
 

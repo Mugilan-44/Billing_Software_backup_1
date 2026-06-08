@@ -1272,13 +1272,7 @@ const InvoiceViewer = () => {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        if (!invoiceData) return;
-        const { invoice } = invoiceData;
-        const link = `${window.location.origin}/invoice/view/${invoice.shareToken}`;
-        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your Invoice (${invoice.invoiceNumber}) for ₹${fmt(invoice.grandTotal)}.\n\nView here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     const handleSendMailGmail = () => {
         if (!invoiceData) return;
@@ -1424,9 +1418,7 @@ const InvoiceViewer = () => {
                     <button onClick={handleSendMailGmail} className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="Send Gmail">
                         <Mail size={18} />
                     </button>
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg hover:bg-emerald-600 transition-all">
-                        <Share2 size={16} /> Share
-                    </button>
+
                     <button
                         onClick={handleDownloadPDF}
                         disabled={downloading}
