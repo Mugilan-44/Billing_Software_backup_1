@@ -24,7 +24,7 @@ const DashboardLayout = () => {
                         P
                     </div>
                     <div className="text-slate-400 text-xs font-semibold tracking-[0.2em] uppercase animate-pulse">
-                        Loading Prolync Billing…
+                        Loading Prolync Billing...
                     </div>
                 </div>
             </div>
@@ -48,7 +48,7 @@ const DashboardLayout = () => {
         if (diffDays <= 30 && diffDays > 0 && isStatusActive) {
             subscriptionBanner = (
                 <div className="bg-amber-500 text-slate-900 px-4 py-2 text-center text-xs font-black shadow-sm flex items-center justify-center gap-2 no-print">
-                    <span>⏳ Your subscription expires in {diffDays} days (on {endDate.toLocaleDateString('en-IN')}). Please renew soon.</span>
+                    <span>Your subscription expires in {diffDays} days (on {endDate.toLocaleDateString('en-IN')}). Please renew soon.</span>
                 </div>
             );
         }

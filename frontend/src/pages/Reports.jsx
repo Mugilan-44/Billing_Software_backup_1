@@ -268,6 +268,24 @@ const Reports = () => {
             ? 'landscape'
             : 'portrait';
         const element = document.getElementById('pdf-report-template');
+        if (!element) {
+            setDownloadingPdf(false);
+            return;
+        }
+
+        // Clone the template and place it in the body under a visible-but-layered layout context
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.left = '0';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = orientation === 'landscape' ? '1050px' : '800px';
+        tempContainer.style.zIndex = '-9999';
+        tempContainer.style.background = 'white';
+        tempContainer.style.visibility = 'visible';
+        
+        tempContainer.innerHTML = element.innerHTML;
+        document.body.appendChild(tempContainer);
+
         const opt = {
             margin:       0.3,
             filename:     `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`,
@@ -278,13 +296,17 @@ const Reports = () => {
 
         html2pdf()
             .set(opt)
-            .from(element)
+            .from(tempContainer)
             .save()
             .then(() => {
+                document.body.removeChild(tempContainer);
                 setDownloadingPdf(false);
             })
             .catch(err => {
                 console.error('PDF generation error', err);
+                if (document.body.contains(tempContainer)) {
+                    document.body.removeChild(tempContainer);
+                }
                 setDownloadingPdf(false);
             });
     };
