@@ -5,7 +5,8 @@ import {
     deleteCreditNote, 
     getCreditNoteById, 
     downloadCreditNotePdf, 
-    sendCreditNote 
+    sendCreditNote,
+    updateCreditNoteStatus
 } from '../controllers/creditNoteController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -25,5 +26,8 @@ router.route('/:id/download')
 
 router.route('/:id/send')
     .post(authorizeRoles('SUPER_ADMIN', 'ADMIN'), sendCreditNote);
+
+router.route('/:id/status')
+    .put(authorizeRoles('SUPER_ADMIN', 'ADMIN'), updateCreditNoteStatus);
 
 export default router;

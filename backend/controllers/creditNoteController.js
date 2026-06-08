@@ -401,3 +401,26 @@ export const sendCreditNote = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// @desc    Update credit note status
+// @route   PUT /api/credit-notes/:id/status
+// @access  Private
+export const updateCreditNoteStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['Open', 'Closed', 'Refunded', 'Applied'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+    const creditNote = await findDocument(CreditNote, req.params.id, req.user);
+    if (!creditNote) {
+      return res.status(404).json({ success: false, message: 'Credit Note not found' });
+    }
+    creditNote.status = status;
+    await creditNote.save();
+    res.status(200).json({ success: true, data: creditNote });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+

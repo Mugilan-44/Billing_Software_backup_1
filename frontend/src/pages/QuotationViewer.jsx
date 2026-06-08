@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { API_URL } from '../utils/api';
-import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList, Trash2, Send, Check, X } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { useToast } from '../context/ToastContext';
 import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
@@ -40,6 +40,57 @@ const QuotationViewer = () => {
             } catch (err) {
                 console.error("Error deleting quotation", err);
                 alert(err.response?.data?.message || "Failed to delete quotation.");
+            }
+        }
+    };
+
+    const handleMarkAsSent = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`/api/quotations/${id}/status`, { status: 'Sent' }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            showToast('Quotation marked as Sent.', 'success');
+            const res = await axios.get(`/api/public/quotations/${id}`);
+            setQuoteData(res.data.data);
+        } catch (err) {
+            console.error("Error marking quotation as sent", err);
+            showToast(err.response?.data?.message || "Failed to update status.", "error");
+        }
+    };
+
+    const handleAccept = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`/api/quotations/${id}/status`, { status: 'Accepted' }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            showToast('Quotation accepted successfully!', 'success');
+            if (window.confirm("Quotation accepted! Do you want to convert it to an Invoice now?")) {
+                navigate(`/invoices/new?quoteId=${id}`);
+            } else {
+                const res = await axios.get(`/api/public/quotations/${id}`);
+                setQuoteData(res.data.data);
+            }
+        } catch (err) {
+            console.error("Error accepting quotation", err);
+            showToast(err.response?.data?.message || "Failed to accept quotation.", "error");
+        }
+    };
+
+    const handleReject = async () => {
+        if (window.confirm("Are you sure you want to reject this quotation?")) {
+            try {
+                const token = localStorage.getItem('token');
+                await axios.put(`/api/quotations/${id}/status`, { status: 'Rejected' }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                showToast('Quotation rejected.', 'info');
+                const res = await axios.get(`/api/public/quotations/${id}`);
+                setQuoteData(res.data.data);
+            } catch (err) {
+                console.error("Error rejecting quotation", err);
+                showToast(err.response?.data?.message || "Failed to reject quotation.", "error");
             }
         }
     };
@@ -256,16 +307,32 @@ const QuotationViewer = () => {
                         <Mail size={20} />
                     </button>
 
-                    {quote.status === 'Accepted' && (
-                        <button onClick={() => navigate(`/sales-orders/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-purple-700 transition-all">
-                            <ClipboardList size={18} /> Convert to Order
+                    {quote.status === 'Draft' && (
+                        <button onClick={handleMarkAsSent} className="flex items-center gap-2 px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm shadow-md transition-all">
+                            <Send size={18} /> Mark as Sent
                         </button>
                     )}
 
-                    {quote.status !== 'Rejected' && (
-                        <button onClick={() => navigate(`/invoices/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
-                            <ClipboardList size={18} /> Convert to Invoice
-                        </button>
+                    {(quote.status === 'Draft' || quote.status === 'Sent') && (
+                        <>
+                            <button onClick={handleAccept} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-lg transition-all">
+                                <Check size={18} /> Accept
+                            </button>
+                            <button onClick={handleReject} className="flex items-center gap-2 px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold text-sm shadow-lg transition-all">
+                                <X size={18} /> Reject
+                            </button>
+                        </>
+                    )}
+
+                    {quote.status === 'Accepted' && (
+                        <>
+                            <button onClick={() => navigate(`/sales-orders/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-purple-700 transition-all">
+                                <ClipboardList size={18} /> Convert to Order
+                            </button>
+                            <button onClick={() => navigate(`/invoices/new?quoteId=${quote._id}`)} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all">
+                                <ClipboardList size={18} /> Convert to Invoice
+                            </button>
+                        </>
                     )}
 
 

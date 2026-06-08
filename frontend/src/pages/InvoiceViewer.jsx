@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { API_URL } from '../utils/api';
-import { ArrowLeft, Download, Share2, Edit, Mail, Printer, Trash2, Palette, FileText, Copy } from 'lucide-react';
+import { ArrowLeft, Download, Share2, Edit, Mail, Printer, Trash2, Palette, FileText, Copy, CreditCard, Send } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 export const getImageUrl = (url) => {
@@ -1206,6 +1206,33 @@ const InvoiceViewer = () => {
         setShowColors(false);
     };
 
+    const handleMarkAsSent = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`/api/invoices/${id}/status`, { status: 'Sent' }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            showToast('Invoice marked as Sent.', 'success');
+            setInvoiceData(prev => ({
+                ...prev,
+                invoice: {
+                    ...prev.invoice,
+                    status: 'Sent'
+                }
+            }));
+        } catch (err) {
+            console.error('Failed to mark invoice as sent', err);
+            showToast(err.response?.data?.message || 'Failed to update status.', 'error');
+        }
+    };
+
+    const handleRecordPayment = () => {
+        if (!invoiceData?.invoice) return;
+        const { invoice } = invoiceData;
+        const custId = invoice.customerId?._id || invoice.customerId;
+        navigate(`/payments/new?invoiceId=${invoice._id}&customerId=${custId}`);
+    };
+
     // ── Safe download using fetch + Blob (no page freeze) ──────────────────────
     const handleDownloadPDF = () => {
         setDownloading(true);
@@ -1367,39 +1394,17 @@ const InvoiceViewer = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Template selector */}
-                    <select
-                        value={template}
-                        onChange={e => handleTemplateChange(e.target.value)}
-                        className="bg-slate-900 text-white border-none rounded-xl py-2.5 pl-3 pr-8 text-sm font-bold shadow-lg cursor-pointer"
-                    >
-                        {TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-
-                    {/* Color picker */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowColors(v => !v)}
-                            className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all flex items-center gap-2"
-                            title="Change Color Theme"
-                        >
-                            <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: accentColor }}></div>
-                            <Palette size={16} className="text-slate-500" />
+                    {invoice.status === 'Draft' && (
+                        <button onClick={handleMarkAsSent} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+                            <Send size={16} /> Mark as Sent
                         </button>
-                        {showColors && (
-                            <div className="absolute right-0 top-12 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 flex gap-2">
-                                {COLOR_THEMES.map(t => (
-                                    <button
-                                        key={t.value}
-                                        onClick={() => handleColorChange(t.value)}
-                                        title={t.label}
-                                        className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${accentColor === t.value ? 'border-slate-800 scale-110' : 'border-white shadow-sm'}`}
-                                        style={{ backgroundColor: t.value }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    )}
+
+                    {['Sent', 'Partial', 'Partially Paid', 'Overdue'].includes(invoice.status) && (
+                        <button onClick={handleRecordPayment} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+                            <CreditCard size={16} /> Record Payment
+                        </button>
+                    )}
 
                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
@@ -1437,6 +1442,48 @@ const InvoiceViewer = () => {
             <div className="flex justify-center">
                 <div className="w-full max-w-4xl shadow-2xl">
                     {templateMap[template] || templateMap.modern}
+                </div>
+            </div>
+
+            {/* ── Customize Design (Template & Color) ── */}
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-6 p-6 bg-white border border-slate-100 rounded-3xl shadow-sm max-w-4xl mx-auto no-print">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                        <Palette size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-900">Customize Invoice Design</h3>
+                        <p className="text-slate-400 text-xs mt-0.5">Select a template and color accent for this invoice</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-6">
+                    {/* Template Selector */}
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Template</span>
+                        <select
+                            value={template}
+                            onChange={e => handleTemplateChange(e.target.value)}
+                            className="bg-slate-900 text-white border-none rounded-xl py-2 px-3 text-sm font-bold shadow-lg cursor-pointer focus:ring-2 focus:ring-blue-500/20"
+                        >
+                            {TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Color Theme Picker */}
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Accent</span>
+                        <div className="flex gap-1.5">
+                            {COLOR_THEMES.map(t => (
+                                <button
+                                    key={t.value}
+                                    onClick={() => handleColorChange(t.value)}
+                                    title={t.label}
+                                    className={`w-6.5 h-6.5 rounded-full border-2 transition-all hover:scale-110 ${accentColor === t.value ? 'border-slate-800 scale-110' : 'border-white shadow-sm'}`}
+                                    style={{ backgroundColor: t.value }}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 

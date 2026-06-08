@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from '../utils/api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, CreditCard, Trash2 } from 'lucide-react';
 
 const InputRow = ({ label, required, children }) => (
@@ -15,6 +15,9 @@ const InputRow = ({ label, required, children }) => (
 const PaymentForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const queryInvoiceId = searchParams.get('invoiceId') || '';
+    const queryCustomerId = searchParams.get('customerId') || '';
     const isEdit = Boolean(id);
     const [loading, setLoading] = useState(false);
 
@@ -50,8 +53,14 @@ const PaymentForm = () => {
         fetchInitialData();
         if (isEdit) {
             fetchPayment();
+        } else {
+            setForm(prev => ({
+                ...prev,
+                customerId: queryCustomerId,
+                invoiceId: queryInvoiceId
+            }));
         }
-    }, [id]);
+    }, [id, queryCustomerId, queryInvoiceId]);
 
     const fetchInitialData = async () => {
         try {
@@ -60,7 +69,21 @@ const PaymentForm = () => {
                 axios.get('/api/invoices')
             ]);
             setCustomers(custRes.data.data);
-            setInvoices(invRes.data.data);
+            const loadedInvoices = invRes.data.data;
+            setInvoices(loadedInvoices);
+
+            // Prefill amount if we are creating a new payment and invoiceId is in query
+            if (!isEdit && queryInvoiceId) {
+                const inv = loadedInvoices.find(i => i._id === queryInvoiceId);
+                if (inv) {
+                    setForm(prev => ({
+                        ...prev,
+                        customerId: queryCustomerId || (inv.customerId?._id || inv.customerId || ''),
+                        invoiceId: queryInvoiceId,
+                        amount: (inv.grandTotal || 0) - (inv.amountPaid || 0)
+                    }));
+                }
+            }
         } catch (err) {
             console.error('Error fetching data', err);
         }

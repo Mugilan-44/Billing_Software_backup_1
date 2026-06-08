@@ -9,6 +9,7 @@ import {
   sendInvoice,
   cancelInvoice,
   deleteInvoice,
+  updateInvoiceStatus,
 } from '../controllers/invoiceController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -32,5 +33,6 @@ router.route('/:id/pdf')
 // ── New endpoints ─────────────────────────────────────────────────────────────
 router.put('/:id/send',    protect, authorizeRoles('SUPER_ADMIN', 'ADMIN'), sendInvoice);
 router.put('/:id/cancel',  protect, authorizeRoles('SUPER_ADMIN', 'ADMIN'), cancelInvoice);
+router.put('/:id/status',  protect, authorizeRoles('SUPER_ADMIN', 'ADMIN'), updateInvoiceStatus);
 
 export default router;

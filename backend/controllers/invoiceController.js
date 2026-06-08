@@ -1133,3 +1133,26 @@ export const streamInvoicePdf = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// @desc    Update invoice status
+// @route   PUT /api/invoices/:id/status
+// @access  Private
+export const updateInvoiceStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowedStatuses = ['Draft', 'Sent', 'Partial', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+    const invoice = await findDocument(Invoice, req.params.id, req.user);
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    invoice.status = status;
+    await invoice.save();
+    res.status(200).json({ success: true, data: invoice });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

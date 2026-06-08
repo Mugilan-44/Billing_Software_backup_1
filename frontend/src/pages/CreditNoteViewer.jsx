@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { API_URL } from '../utils/api';
-import { ArrowLeft, Download, Share2, Mail, Printer, Palette, Copy, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Download, Share2, Mail, Printer, Palette, Copy, AlertTriangle, Check, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
 
@@ -72,6 +72,29 @@ const CreditNoteViewer = () => {
     const handleColorChange = (val) => {
         setAccentColor(val);
         setShowColors(false);
+    };
+
+    const handleUpdateStatus = async (newStatus) => {
+        try {
+            const token = localStorage.getItem('token')
+                || (() => { try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return ''; } })()
+                || '';
+
+            await axios.put(`/api/credit-notes/${id}/status`, { status: newStatus }, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            showToast(`Credit Note marked as ${newStatus}!`, 'success');
+            
+            // Refetch
+            const [cnRes, settingsRes] = await Promise.all([
+                axios.get(`/api/credit-notes/${id}`),
+                axios.get('/api/settings'),
+            ]);
+            setCnData({ cn: cnRes.data.data, settings: settingsRes.data.data });
+        } catch (err) {
+            console.error('Status update failed:', err);
+            showToast(err.response?.data?.message || 'Failed to update status.', 'error');
+        }
     };
 
     const handleDownloadPDF = () => {
@@ -162,8 +185,13 @@ const CreditNoteViewer = () => {
                     <div>
                         <div className="flex items-center gap-3 mb-1">
                             <h1 className="text-2xl font-black text-slate-900">#{cn.cnNumber}</h1>
-                            <span className="text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest uppercase bg-red-500 text-white">
-                                Credit Note
+                            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest uppercase ${
+                                cn.status === 'Open' ? 'bg-blue-500 text-white' :
+                                cn.status === 'Refunded' ? 'bg-emerald-500 text-white' :
+                                cn.status === 'Applied' ? 'bg-purple-500 text-white' :
+                                'bg-slate-500 text-white'
+                            }`}>
+                                {cn.status || 'Open'}
                             </span>
                         </div>
                         <p className="text-slate-500 text-sm">{customer?.companyName || customer?.name}</p>
@@ -195,6 +223,17 @@ const CreditNoteViewer = () => {
                             </div>
                         )}
                     </div>
+
+                    {cn.status === 'Open' && (
+                        <>
+                            <button onClick={() => handleUpdateStatus('Refunded')} className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-sm transition-all" title="Record Refund">
+                                <Check size={14} /> Refund
+                            </button>
+                            <button onClick={() => handleUpdateStatus('Applied')} className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-xs shadow-sm transition-all" title="Apply to Invoice">
+                                <Check size={14} /> Apply Credits
+                            </button>
+                        </>
+                    )}
 
                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 

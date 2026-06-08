@@ -53,7 +53,7 @@ const creditNoteSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['Open', 'Closed'],
+    enum: ['Open', 'Closed', 'Refunded', 'Applied'],
     default: 'Open',
   },
   notes:     String,
