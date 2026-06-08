@@ -86,11 +86,7 @@ const QuotationViewer = () => {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        const link = `${window.location.origin}/public/quotation/${id}`;
-        const text = `Hello ${quoteData.quotation.customerId?.companyName || 'Customer'},\n\nHere is your latest Quotation (${quoteData.quotation.quoteNumber}) for ₹${(quoteData.quotation.grandTotal || 0).toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     const handleShareEmail = () => {
         const link = `${window.location.origin}/public/quotation/${id}`;
@@ -272,9 +268,7 @@ const QuotationViewer = () => {
                         </button>
                     )}
 
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all">
-                        <Share2 size={18} /> Share
-                    </button>
+
 
                     <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-75">
                         {downloading ? (

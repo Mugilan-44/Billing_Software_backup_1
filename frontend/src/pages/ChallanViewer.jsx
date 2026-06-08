@@ -110,11 +110,7 @@ const ChallanViewer = () => {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        const link = `${window.location.origin}/public/challan/${id}`;
-        const text = `Hello,\n\nHere is your Delivery Challan (${challanData.challan.challanNumber}).\n\nView here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     const handleCopyDetails = () => {
         if (!challanData) return;
@@ -174,9 +170,7 @@ const ChallanViewer = () => {
                         <Mail size={20} />
                     </button>
 
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-emerald-600 transition-all">
-                        <Share2 size={18} /> Share
-                    </button>
+
 
                     <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all">
                         <Download size={18} /> {downloading ? 'Downloading...' : 'Download'}

@@ -122,12 +122,7 @@ const CreditNoteViewer = () => {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        if (!cnData) return;
-        const { cn } = cnData;
-        const text = `Hello ${cn.customerId?.companyName || cn.customerId?.name || 'Customer'},\n\nWe have issued a Credit Note (${cn.cnNumber}) for ₹${fmt(cn.amount)} in your favor.\nReason: ${cn.reason || 'Returns'}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     const handleCopyDetails = () => {
         if (!cnData) return;
@@ -212,9 +207,7 @@ const CreditNoteViewer = () => {
                     <button onClick={openEmailModal} className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" title="Send Email">
                         <Mail size={18} />
                     </button>
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-emerald-600 transition-all">
-                        <Share2 size={16} /> Share
-                    </button>
+
                     <button
                         onClick={handleDownloadPDF}
                         disabled={downloading}

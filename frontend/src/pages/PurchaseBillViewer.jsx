@@ -114,11 +114,7 @@ const PurchaseBillViewer = () => {
         }
     };
 
-    const handleShareWhatsApp = () => {
-        const link = `${window.location.origin}/public/purchase-bills/${id}`;
-        const text = `Hello,\n\nHere is your Purchase Bill (${billData.bill.billNumber}).\n\nView here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     const handleCopyDetails = () => {
         if (!billData) return;
@@ -178,9 +174,7 @@ const PurchaseBillViewer = () => {
                         <Mail size={20} />
                     </button>
 
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-emerald-600 transition-all">
-                        <Share2 size={18} /> Share
-                    </button>
+
 
                     <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-lg font-medium text-sm shadow-sm hover:bg-blue-700 transition-all">
                         <Download size={18} /> {downloading ? 'Downloading...' : 'Download'}

@@ -91,11 +91,7 @@ const SalesOrderViewer = () => {
         window.location.href = `mailto:${orderData.order.customerId?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
-    const handleShareWhatsApp = () => {
-        const link = `${window.location.origin}/public/order/${id}`;
-        const text = `Hello ${orderData?.order?.customerId?.companyName || 'Customer'},\n\nYour Sales Order (${orderData?.order?.orderNumber}) for ₹${(orderData?.order?.grandTotal || 0).toFixed(2)} is ready.\n\nView here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
     if (loading) return <div className="p-8 text-center text-slate-500">Loading Order Viewer...</div>;
     if (!orderData) return <div className="p-8 text-center text-red-500">Order not found.</div>;
@@ -138,9 +134,7 @@ const SalesOrderViewer = () => {
                         <Mail size={20} />
                     </button>
 
-                    <button onClick={handleShareWhatsApp} className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-emerald-600 transition-all">
-                        <Share2 size={18} /> Share
-                    </button>
+
 
                     <button onClick={handleDownloadPDF} disabled={downloading} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all disabled:opacity-75">
                         {downloading ? (
