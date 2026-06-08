@@ -42,7 +42,7 @@ const PaymentForm = () => {
         customerId: '',
         invoiceId: '',
         amount: '',
-        paymentMode: 'Bank Transfer',
+        paymentMode: 'Bank',
         referenceNumber: '',
         paymentDate: new Date().toISOString().split('T')[0],
         notes: '',
@@ -97,7 +97,7 @@ const PaymentForm = () => {
                 customerId: p.customerId?._id || p.customerId || '',
                 invoiceId: p.invoiceId?._id || p.invoiceId || '',
                 amount: p.amount || '',
-                paymentMode: p.paymentMode || 'Bank Transfer',
+                paymentMode: p.paymentMode || 'Bank',
                 referenceNumber: p.referenceNumber || '',
                 paymentDate: p.paymentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
                 notes: p.notes || '',
@@ -271,7 +271,7 @@ const PaymentForm = () => {
                             value={form.paymentMode}
                             onChange={e => handleChange('paymentMode', e.target.value)}
                         >
-                            <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+                            <option value="Bank">Bank Transfer (NEFT/RTGS)</option>
                             <option value="UPI">UPI / QR</option>
                             <option value="Cash">Cash</option>
                             <option value="Cheque">Cheque</option>
