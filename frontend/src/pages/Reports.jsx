@@ -3,7 +3,7 @@ import axios from '../utils/api';
 import { BarChart3, Download, Filter, Calendar, FileText, TrendingUp, IndianRupee, AlertCircle } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // ── Column definitions per report type ──────────────────────────────────────────
 const SALES_COLUMNS = [
@@ -457,7 +457,7 @@ const Reports = () => {
                 columns.map(c => getCellText(c.key, row[c.key], row))
             );
             
-            doc.autoTable({
+            autoTable(doc, {
                 head: [tableCols],
                 body: tableRows,
                 startY: y,
