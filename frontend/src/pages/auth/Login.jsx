@@ -108,106 +108,8 @@ const Login = () => {
                     animation: growY 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
                 }
             `}</style>
-            {/* Left Panel: Clean Sign-In Form Box */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 md:p-12 lg:p-16 bg-white shrink-0">
-                <div className="flex items-center gap-3">
-                    <img
-                        src="/logo.png"
-                        alt="Prolync Logo"
-                        className="w-10 h-10 rounded-xl bg-slate-50 p-1.5 object-contain border border-slate-200 shadow-sm"
-                    />
-                    <div className="flex flex-col">
-                        <span className="text-slate-900 text-lg font-bold tracking-tight leading-none">Prolync</span>
-                        <span className="text-slate-500 text-xs font-semibold tracking-wide mt-0.5">Billing</span>
-                    </div>
-                </div>
-
-                <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
-                    <div className="space-y-2">
-                        <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
-                            Sign In
-                        </h1>
-                        <p className="text-sm font-medium text-slate-500">
-                            Welcome back to your Billing System
-                        </p>
-                    </div>
-
-                    {error && (
-                        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm animate-in fade-in">
-                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-                                autoComplete="email"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                placeholder="name@company.com"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    Password
-                                </label>
-                            </div>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
-                                    autoComplete="current-password"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                                    tabIndex={-1}
-                                >
-                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-slate-950 hover:bg-slate-900 text-white flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] mt-6"
-                        >
-                            {loading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Logging in...
-                                </>
-                            ) : (
-                                <>
-                                    <LogIn size={16} />
-                                    Log In
-                                </>
-                            )}
-                        </button>
-                    </form>
-                </div>
-
-                <div className="text-xs text-slate-400">
-                    © {new Date().getFullYear()} Prolync Software Inc. All rights reserved.
-                </div>
-            </div>
-
-            {/* Right Panel: Clean White/Slate-50 Statistics & Billing Illustrations */}
-            <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-center p-12 lg:p-16 border-l border-slate-200/60 relative overflow-hidden">
+            {/* Left Panel: Clean White/Slate-50 Statistics & Billing Illustrations */}
+            <div className="hidden lg:flex lg:w-1/2 bg-white flex-col justify-center p-12 lg:p-16 border-r border-slate-200/60 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
                 
                 {/* Illustrations (Numbers & Graph & Rotating Discovery Text) */}
@@ -314,6 +216,104 @@ const Login = () => {
                             <span>Week 4</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Right Panel: Clean Sign-In Form Box */}
+            <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 md:p-12 lg:p-16 bg-white shrink-0">
+                <div className="flex items-center gap-3">
+                    <img
+                        src="/logo.png"
+                        alt="Prolync Logo"
+                        className="w-10 h-10 rounded-xl bg-slate-50 p-1.5 object-contain border border-slate-200 shadow-sm"
+                    />
+                    <div className="flex flex-col">
+                        <span className="text-slate-900 text-lg font-bold tracking-tight leading-none">Prolync</span>
+                        <span className="text-slate-500 text-xs font-semibold tracking-wide mt-0.5">Billing</span>
+                    </div>
+                </div>
+
+                <div className="my-auto py-8 max-w-md w-full mx-auto space-y-8">
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
+                            Sign In
+                        </h1>
+                        <p className="text-sm font-medium text-slate-500">
+                            Welcome back to your Billing System
+                        </p>
+                    </div>
+
+                    {error && (
+                        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm animate-in fade-in">
+                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                Email Address
+                            </label>
+                            <input
+                                type="email"
+                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                                autoComplete="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="name@company.com"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Password
+                                </label>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium pr-10"
+                                    autoComplete="current-password"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-slate-950 hover:bg-slate-900 text-white flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] mt-6"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Logging in...
+                                </>
+                            ) : (
+                                <>
+                                    <LogIn size={16} />
+                                    Log In
+                                </>
+                            )}
+                        </button>
+                    </form>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                    © {new Date().getFullYear()} Prolync Software Inc. All rights reserved.
                 </div>
             </div>
         </div>
