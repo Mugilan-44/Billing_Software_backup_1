@@ -30,7 +30,7 @@ const paymentSchema = new mongoose.Schema({
   },
   mode: {
     type: String,
-    enum: ['Cash', 'UPI', 'NEFT', 'RTGS', 'Cheque', 'Card', 'Bank', 'Credit'],
+    enum: ['Cash', 'UPI', 'NEFT', 'RTGS', 'Cheque', 'Card', 'Bank', 'Credit', 'Bank Transfer', 'Bank Transfer (NEFT/RTGS)', 'UPI / QR', 'UPI/QR'],
   },
   reference: {
     type: String,
@@ -43,7 +43,7 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['Cash', 'Bank', 'UPI', 'Cheque', 'Credit', 'NEFT', 'RTGS', 'Card'],
+    enum: ['Cash', 'Bank', 'UPI', 'Cheque', 'Credit', 'NEFT', 'RTGS', 'Card', 'Bank Transfer', 'Bank Transfer (NEFT/RTGS)', 'UPI / QR', 'UPI/QR'],
   },
   referenceNumber: {
     type: String,
@@ -54,6 +54,18 @@ const paymentSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   taxMode: { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+paymentSchema.pre('validate', function(next) {
+  const normalize = (val) => {
+    if (!val) return val;
+    if (val === 'Bank Transfer' || val === 'Bank Transfer (NEFT/RTGS)') return 'Bank';
+    if (val === 'UPI / QR' || val === 'UPI/QR') return 'UPI';
+    return val;
+  };
+  if (this.paymentMode) this.paymentMode = normalize(this.paymentMode);
+  if (this.mode) this.mode = normalize(this.mode);
+  next();
+});
 
 paymentSchema.index({ invoiceId: 1 });
 paymentSchema.index({ customerId: 1 });

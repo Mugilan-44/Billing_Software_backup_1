@@ -97,7 +97,7 @@ const PaymentForm = () => {
                 customerId: p.customerId?._id || p.customerId || '',
                 invoiceId: p.invoiceId?._id || p.invoiceId || '',
                 amount: p.amount || '',
-                paymentMode: p.paymentMode || 'Bank',
+                paymentMode: p.paymentMode === 'Bank Transfer' ? 'Bank' : (p.paymentMode === 'UPI / QR' ? 'UPI' : (p.paymentMode || 'Bank')),
                 referenceNumber: p.referenceNumber || '',
                 paymentDate: p.paymentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
                 notes: p.notes || '',

@@ -45,7 +45,7 @@ export const recordPaymentSchema = z.object({
   invoiceId: z.string().min(1, 'Invoice ID is required'),
   amount:    z.number().positive('Payment amount must be positive'),
   date:      z.string().or(z.date()),
-  mode:      z.enum(['Cash', 'UPI', 'NEFT', 'RTGS', 'Cheque', 'Card', 'Bank', 'Credit']),
+  mode:      z.enum(['Cash', 'UPI', 'NEFT', 'RTGS', 'Cheque', 'Card', 'Bank', 'Credit', 'Bank Transfer', 'Bank Transfer (NEFT/RTGS)', 'UPI / QR', 'UPI/QR']),
   reference: z.string().optional(),
   notes:     z.string().optional(),
 })
