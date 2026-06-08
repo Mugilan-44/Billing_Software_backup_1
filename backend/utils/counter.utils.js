@@ -30,7 +30,7 @@ export async function getNextSequenceValue(sequenceName, prefix, companyId) {
         { new: true, upsert: true }
       );
       const generatedNumber = `${prefix}-${String(counter.seq).padStart(6, '0')}`;
-      const exists = await Model.exists({ [field]: generatedNumber });
+      const exists = await Model.exists({ companyId: companyId || null, [field]: generatedNumber });
       if (!exists) {
         return generatedNumber;
       }
@@ -86,7 +86,7 @@ export async function getNextCustomSequence(companyId, type, taxMode) {
       const digits = config.digits || 4;
       const generatedNumber = `${prefix}${String(currentNum).padStart(digits, '0')}`;
 
-      const exists = await Model.exists({ [field]: generatedNumber });
+      const exists = await Model.exists({ companyId: companyId || null, [field]: generatedNumber });
       if (!exists) {
         return generatedNumber;
       }

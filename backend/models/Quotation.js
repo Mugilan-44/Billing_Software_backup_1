@@ -21,7 +21,6 @@ const quotationSchema = new mongoose.Schema({
   quoteNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -87,6 +86,8 @@ const quotationSchema = new mongoose.Schema({
   includeUpiQr:       { type: Boolean, default: true },
   taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+quotationSchema.index({ companyId: 1, quoteNumber: 1 }, { unique: true });
 
 quotationSchema.pre('validate', async function () {
   if (this.isNew && !this.quoteNumber) {

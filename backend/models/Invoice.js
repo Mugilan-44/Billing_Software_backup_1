@@ -19,7 +19,7 @@ const invoiceSchema = new Schema({
   companyId: { type: Schema.Types.ObjectId, ref: 'Company', default: null },
   branchId:  { type: Schema.Types.ObjectId, ref: 'Branch', default: null },
 
-  invoiceNumber:      { type: String, required: true, unique: true },
+  invoiceNumber:      { type: String, required: true },
   customerId:         { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
   date:               { type: Date, required: true, default: Date.now },
   dueDate:            { type: Date },
@@ -111,7 +111,7 @@ invoiceSchema.index({ companyId: 1, customerId: 1 });
 invoiceSchema.index({ companyId: 1, status: 1 });
 invoiceSchema.index({ companyId: 1, date: -1 });
 invoiceSchema.index({ companyId: 1, dueDate: 1, status: 1 }); // for overdue cron
-invoiceSchema.index({ invoiceNumber: 1 }, { unique: true });
+invoiceSchema.index({ companyId: 1, invoiceNumber: 1 }, { unique: true });
 
 
 invoiceSchema.pre('validate', async function () {

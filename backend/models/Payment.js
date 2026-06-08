@@ -7,7 +7,6 @@ const paymentSchema = new mongoose.Schema({
   paymentNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   invoiceId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -70,6 +69,7 @@ paymentSchema.index({ invoiceId: 1 });
 paymentSchema.index({ customerId: 1 });
 paymentSchema.index({ invoiceId: 1, companyId: 1 }); // fast reconciliation
 paymentSchema.index({ companyId: 1, date: -1 });     // fast payment history
+paymentSchema.index({ companyId: 1, paymentNumber: 1 }, { unique: true });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 export default Payment;

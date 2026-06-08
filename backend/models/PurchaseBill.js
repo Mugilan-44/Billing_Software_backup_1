@@ -19,7 +19,6 @@ const purchaseBillSchema = new mongoose.Schema({
   billNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -88,6 +87,7 @@ purchaseBillSchema.index({ companyId: 1, status: 1 });
 purchaseBillSchema.index({ companyId: 1, date: -1 });
 purchaseBillSchema.index({ companyId: 1, dueDate: 1, status: 1 }); // for overdue
 purchaseBillSchema.index({ companyId: 1, vendorId: 1 });
+purchaseBillSchema.index({ companyId: 1, billNumber: 1 }, { unique: true });
 
 const PurchaseBill = mongoose.model('PurchaseBill', purchaseBillSchema);
 export default PurchaseBill;

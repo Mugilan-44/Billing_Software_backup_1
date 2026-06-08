@@ -20,7 +20,6 @@ const salesOrderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -86,6 +85,8 @@ const salesOrderSchema = new mongoose.Schema({
   includeUpiQr:       { type: Boolean, default: true },
   taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+salesOrderSchema.index({ companyId: 1, orderNumber: 1 }, { unique: true });
 
 const SalesOrder = mongoose.model('SalesOrder', salesOrderSchema);
 export default SalesOrder;

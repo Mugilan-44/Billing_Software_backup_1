@@ -7,7 +7,6 @@ const creditNoteSchema = new mongoose.Schema({
   cnNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   invoiceId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -64,5 +63,7 @@ const creditNoteSchema = new mongoose.Schema({
   includeUpiQr:       { type: Boolean, default: true },
   taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+creditNoteSchema.index({ companyId: 1, cnNumber: 1 }, { unique: true });
 
 export default mongoose.model('CreditNote', creditNoteSchema);

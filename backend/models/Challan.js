@@ -6,7 +6,6 @@ const challanSchema = new mongoose.Schema({
     challanNumber: {
         type: String,
         required: true,
-        unique: true,
     },
     customerId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -81,6 +80,8 @@ const challanSchema = new mongoose.Schema({
     includeUpiQr:       { type: Boolean, default: true },
     taxMode:            { type: String, enum: ['WITH_TAX', 'WITHOUT_TAX'], default: 'WITH_TAX', index: true },
 }, { timestamps: true });
+
+challanSchema.index({ companyId: 1, challanNumber: 1 }, { unique: true });
 
 const Challan = mongoose.model('Challan', challanSchema);
 export default Challan;

@@ -46,6 +46,29 @@ const connectDB = async () => {
             throw new Error(`Connection succeeded, but the database does not support transactions. Replica set Name is missing. Transaction numbers are only allowed on a replica set member or mongos.`);
         }
 
+        // Programmatic migration: Drop legacy global unique indexes if they exist
+        const legacyIndexes = [
+            { collection: 'invoices', index: 'invoiceNumber_1' },
+            { collection: 'payments', index: 'paymentNumber_1' },
+            { collection: 'creditnotes', index: 'cnNumber_1' },
+            { collection: 'purchasebills', index: 'billNumber_1' },
+            { collection: 'salesorders', index: 'orderNumber_1' },
+            { collection: 'quotations', index: 'quoteNumber_1' },
+            { collection: 'challans', index: 'challanNumber_1' }
+        ];
+
+        for (const drop of legacyIndexes) {
+            try {
+                await db.collection(drop.collection).dropIndex(drop.index);
+                console.log(`[MIGRATION] Dropped global unique index: ${drop.index} on ${drop.collection}`);
+            } catch (err) {
+                // Ignore errors like "index not found" (IndexNotFound / code 27)
+                if (err.code !== 27 && err.codeName !== 'IndexNotFound') {
+                    console.warn(`[MIGRATION WARNING] Failed to drop ${drop.index} on ${drop.collection}: ${err.message}`);
+                }
+            }
+        }
+
     } catch (error) {
         console.error(`Error connecting to MongoDB: ${error.message}`);
         throw error; // Throw so that server.js startServer handles the exit
