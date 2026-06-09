@@ -1,6 +1,10 @@
 import Customer from '../models/Customer.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import User from '../models/User.js';
+import { findDocument } from '../utils/tenant.utils.js';
+import { createCustomerSchema, updateCustomerSchema } from '../validators/customer.validators.js';
+import { calculateCustomerOutstanding } from '../services/outstandingService.js';
+import { toRupees } from '../utils/rounding.js';
 
 // @desc    Get all customers
 // @route   GET /api/customers
@@ -8,14 +12,34 @@ import User from '../models/User.js';
 export const getCustomers = async (req, res) => {
     try {
         let query = {};
-        if (req.user.role === 'ADMIN') {
+        if (req.user.role !== 'SUPER_ADMIN') {
             query.companyId = req.user.companyId;
             query.branchId = req.user.branchId;
         } else if (req.user.role === 'CUSTOMER') {
             query._id = req.user.customerId;
         }
-        const customers = await Customer.find(query);
-        res.json({ success: true, data: customers });
+        const customers = await Customer.find(query)
+            .select('-__v')
+            .sort({ companyName: 1 })
+            .lean();
+
+        // Dynamically compute outstanding balance and aging
+        const enrichedCustomers = await Promise.all(customers.map(async (cus) => {
+            const stats = await calculateCustomerOutstanding(cus._id);
+            return {
+                ...cus,
+                outstandingBalance: toRupees(stats.totalOutstanding).toNumber(),
+                totalBusiness: toRupees(stats.totalInvoiced).toNumber(),
+                agingBuckets: {
+                    '0-30': toRupees(stats.agingBuckets['0-30']).toNumber(),
+                    '31-60': toRupees(stats.agingBuckets['31-60']).toNumber(),
+                    '61-90': toRupees(stats.agingBuckets['61-90']).toNumber(),
+                    '90+': toRupees(stats.agingBuckets['90+']).toNumber(),
+                }
+            };
+        }));
+
+        res.json({ success: true, count: enrichedCustomers.length, data: enrichedCustomers });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -26,7 +50,7 @@ export const getCustomers = async (req, res) => {
 // @access  Private
 export const getCustomerById = async (req, res) => {
     try {
-        const customer = await Customer.findById(req.params.id);
+        const customer = await findDocument(Customer, req.params.id, req.user);
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
@@ -41,34 +65,68 @@ export const getCustomerById = async (req, res) => {
 // @access  Private
 export const createCustomer = async (req, res) => {
     try {
-        const payload = { ...req.body };
-        if (req.user.role === 'ADMIN') {
-            payload.companyId = req.user.companyId;
-            payload.branchId = req.user.branchId;
+        const parsed = createCustomerSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: parsed.error.issues.map(e => `${e.path.join('.')}: ${e.message}`),
+            });
         }
-        const customer = await Customer.create(payload);
-        // Initialize standard outstanding with opening balance
-        customer.outstandingBalance = customer.openingBalance || 0;
-        await customer.save();
 
+        const payload = { ...parsed.data };
+        if (req.user.role !== 'SUPER_ADMIN') {
+            payload.companyId = req.user.companyId;
+            payload.branchId  = req.user.branchId;
+        }
+
+        // Auto-derive stateCode from GSTIN if not provided
+        const gstin = payload.gstin || payload.gstNumber;
+        if (gstin && !payload.stateCode) {
+            payload.stateCode = gstin.substring(0, 2);
+        }
+
+        // FIX H8: Correctly seed outstandingBalance from openingBalance
+        payload.outstandingBalance = payload.openingBalance || 0;
+        payload.totalBusiness      = 0;
+
+        const customer = await Customer.create(payload);
         res.status(201).json({ success: true, data: customer });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
 };
 
-// @desc    Update customer
+// @desc    Update customer — strict field allowlist (prevents financial field tampering)
 // @route   PUT /api/customers/:id
 // @access  Private
 export const updateCustomer = async (req, res) => {
     try {
-        const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true,
-        });
+        // Validate with strict schema (rejects companyId, outstandingBalance, totalBusiness, etc.)
+        const parsed = updateCustomerSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: parsed.error.issues.map(e => `${e.path.join('.')}: ${e.message}`),
+            });
+        }
+
+        const customer = await findDocument(Customer, req.params.id, req.user);
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
+
+        // Apply only validated fields — never spread raw req.body
+        Object.assign(customer, parsed.data);
+
+        // Auto-sync stateCode from GSTIN if GSTIN updated
+        const gstin = parsed.data.gstin || parsed.data.gstNumber;
+        if (gstin) {
+            customer.stateCode = gstin.substring(0, 2);
+        }
+
+        await customer.save();
         res.json({ success: true, data: customer });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -80,7 +138,7 @@ export const updateCustomer = async (req, res) => {
 // @access  Private
 export const deleteCustomer = async (req, res) => {
     try {
-        const customer = await Customer.findById(req.params.id);
+        const customer = await findDocument(Customer, req.params.id, req.user);
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
@@ -91,13 +149,19 @@ export const deleteCustomer = async (req, res) => {
     }
 };
 
-// @desc    Get customer ledger
+// @desc    Get customer ledger — running balance
 // @route   GET /api/customers/:id/ledger
 // @access  Private
 export const getCustomerLedger = async (req, res) => {
     try {
-        const ledger = await LedgerEntry.find({ customerId: req.params.id })
-            .sort({ date: 1, createdAt: 1 });
+        const customer = await findDocument(Customer, req.params.id, req.user);
+        if (!customer) {
+            return res.status(404).json({ success: false, message: 'Customer not found' });
+        }
+
+        const ledger = await LedgerEntry.find({ customerId: customer._id })
+            .sort({ date: 1, createdAt: 1 })
+            .lean();
 
         res.json({ success: true, count: ledger.length, data: ledger });
     } catch (error) {
@@ -105,13 +169,13 @@ export const getCustomerLedger = async (req, res) => {
     }
 };
 
-// @desc    Create user account for customer
+// @desc    Create user account for customer portal access
 // @route   POST /api/customers/:id/user
 // @access  Private
 export const createCustomerUser = async (req, res) => {
     try {
         const { password, email } = req.body;
-        const customer = await Customer.findById(req.params.id);
+        const customer = await findDocument(Customer, req.params.id, req.user);
 
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
@@ -130,20 +194,20 @@ export const createCustomerUser = async (req, res) => {
 
         const userPassword = password || 'Customer@123';
 
-        const user = await User.create({
-            name: customer.displayName || customer.companyName,
-            email: userEmail,
-            password: userPassword,
-            role: 'CUSTOMER',
-            companyId: req.user?.companyId || null, // Inherit if created by Admin
+        await User.create({
+            name:       customer.displayName || customer.companyName,
+            email:      userEmail,
+            password:   userPassword,
+            role:       'CUSTOMER',
+            companyId:  req.user?.companyId || null,
             customerId: customer._id,
-            isActive: true,
+            isActive:   true,
         });
 
         res.status(201).json({
             success: true,
             message: 'Customer user account created successfully',
-            data: { email: userEmail, password: userPassword }
+            data: { email: userEmail, password: userPassword },
         });
 
     } catch (error) {

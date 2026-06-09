@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Search } from 'lucide-react';
 
@@ -81,7 +81,7 @@ const Vendors = () => {
                                             <div className="text-sm text-gray-900">{v.contactPerson || '-'}</div>
                                             <div className="text-xs text-gray-500">{v.phone}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{v.openingBalance.toFixed(2)}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">₹{(v.openingBalance || 0).toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center text-sm font-medium space-x-3">
                                             <button onClick={() => openModal(v)} className="text-blue-600 hover:text-blue-900 transition-colors p-1.5 hover:bg-blue-50 rounded-lg"><Edit2 size={16} className="inline" /></button>
                                             <button onClick={() => deleteVendor(v._id)} className="text-red-600 hover:text-red-900 transition-colors p-1.5 hover:bg-red-50 rounded-lg"><Trash2 size={16} className="inline" /></button>

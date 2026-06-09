@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER'],
+        enum: ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'CASHIER', 'CUSTOMER'],
         required: true,
     },
     // Company association — null for SUPER_ADMIN
@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
         ref: 'Company',
         default: null,
     },
-    // Branch association — required for ADMIN
+    // Branch association — required for ADMIN/STAFF/CASHIER
     branchId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Branch',
@@ -61,10 +61,25 @@ const userSchema = new mongoose.Schema({
         expenses: { type: Boolean, default: true },
         stock: { type: Boolean, default: true },
         reports: { type: Boolean, default: true },
+        overallTax: { type: Boolean, default: true },
+        withTax: { type: Boolean, default: true },
+        noTax: { type: Boolean, default: true },
     },
-    // Optional: track last login
+    // Optional: track last login details
     lastLoginAt: {
         type: Date,
+    },
+    lastLoginIp: {
+        type: String,
+        default: '',
+    },
+    isPasswordResetRequired: {
+        type: Boolean,
+        default: false,
+    },
+    isCoAdmin: {
+        type: Boolean,
+        default: false,
     },
 }, { timestamps: true });
 

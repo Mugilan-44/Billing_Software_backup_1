@@ -24,7 +24,7 @@ const DashboardLayout = () => {
                         P
                     </div>
                     <div className="text-slate-400 text-xs font-semibold tracking-[0.2em] uppercase animate-pulse">
-                        Loading Prolync Book…
+                        Loading Prolync Billing...
                     </div>
                 </div>
             </div>
@@ -32,6 +32,27 @@ const DashboardLayout = () => {
     }
 
     if (!user) return <Navigate to="/login" replace />;
+
+    const company = user?.companyId;
+    const subscriptionEndDate = company?.subscriptionEndDate;
+    const subscriptionStatus = company?.subscriptionStatus;
+
+    let subscriptionBanner = null;
+    if (user && user.role !== 'SUPER_ADMIN' && subscriptionEndDate) {
+        const endDate = new Date(subscriptionEndDate);
+        const today = new Date();
+        const diffTime = endDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const isStatusActive = subscriptionStatus?.toUpperCase() === 'ACTIVE';
+
+        if (diffDays <= 30 && diffDays > 0 && isStatusActive) {
+            subscriptionBanner = (
+                <div className="bg-amber-500 text-slate-900 px-4 py-2 text-center text-xs font-black shadow-sm flex items-center justify-center gap-2 no-print">
+                    <span>Your subscription expires in {diffDays} days (on {endDate.toLocaleDateString('en-IN')}). Please renew soon.</span>
+                </div>
+            );
+        }
+    }
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -75,6 +96,9 @@ const DashboardLayout = () => {
                         <Menu size={20} />
                     </button>
                 </div>
+
+                {/* Subscription Banner */}
+                {subscriptionBanner}
 
                 {/* Page content */}
                 <main

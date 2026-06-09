@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Share2, ClipboardList } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Quotations = () => {
     const navigate = useNavigate();
@@ -9,14 +10,17 @@ const Quotations = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date-desc');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchQuotations();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchQuotations = async () => {
         try {
-            const res = await axios.get('/api/quotations');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/quotations${queryParam}`);
             setQuotations(res.data.data);
         } catch (error) {
             console.error('Error fetching quotations', error);
@@ -69,7 +73,7 @@ const Quotations = () => {
                         <input
                             type="text"
                             className="input-field pl-10"
-                            placeholder="Search quote number or customer..."
+                            placeholder="Search reference number or customer..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -95,7 +99,7 @@ const Quotations = () => {
                         <thead className="bg-gray-50 text-left">
                             <tr>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Quote #</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Reference No.</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount (₹)</th>
@@ -143,7 +147,7 @@ const Quotations = () => {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            {q.grandTotal.toFixed(2)}
+                                            {(q.grandTotal || 0).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))

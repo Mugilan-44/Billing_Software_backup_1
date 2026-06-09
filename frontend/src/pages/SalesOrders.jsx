@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Truck, FileText } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const SalesOrders = () => {
     const [salesOrders, setSalesOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchSalesOrders();
-    }, []);
+    }, [taxSystemMode]);
 
     const [sortBy, setSortBy] = useState('date-desc');
     const navigate = useNavigate();
 
     const fetchSalesOrders = async () => {
         try {
-            const res = await axios.get('/api/sales-orders');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/sales-orders${queryParam}`);
             setSalesOrders(res.data.data);
         } catch (error) {
             console.error('Error fetching sales orders', error);
@@ -146,7 +150,7 @@ const SalesOrders = () => {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            {so.grandTotal.toFixed(2)}
+                                            {(so.grandTotal || 0).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))

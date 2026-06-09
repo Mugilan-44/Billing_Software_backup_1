@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, CreditCard } from 'lucide-react';
+import axios from '../utils/api';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Save, CreditCard, Trash2 } from 'lucide-react';
 
 const InputRow = ({ label, required, children }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -15,8 +15,24 @@ const InputRow = ({ label, required, children }) => (
 const PaymentForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const queryInvoiceId = searchParams.get('invoiceId') || '';
+    const queryCustomerId = searchParams.get('customerId') || '';
     const isEdit = Boolean(id);
     const [loading, setLoading] = useState(false);
+
+    const handleDeletePayment = async () => {
+        if (window.confirm("Are you sure you want to permanently delete this payment? This will reverse invoice payments and customer outstanding balances.")) {
+            try {
+                await axios.delete(`/api/payments/${id}`);
+                alert("Payment deleted successfully.");
+                navigate('/payments');
+            } catch (err) {
+                console.error("Error deleting payment", err);
+                alert(err.response?.data?.message || "Failed to delete payment.");
+            }
+        }
+    };
     const [customers, setCustomers] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [error, setError] = useState('');
@@ -26,18 +42,25 @@ const PaymentForm = () => {
         customerId: '',
         invoiceId: '',
         amount: '',
-        paymentMode: 'Bank Transfer',
+        paymentMode: 'Bank',
         referenceNumber: '',
         paymentDate: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        thankYouNote: 'Thank you for your business!'
     });
 
     useEffect(() => {
         fetchInitialData();
         if (isEdit) {
             fetchPayment();
+        } else {
+            setForm(prev => ({
+                ...prev,
+                customerId: queryCustomerId,
+                invoiceId: queryInvoiceId
+            }));
         }
-    }, [id]);
+    }, [id, queryCustomerId, queryInvoiceId]);
 
     const fetchInitialData = async () => {
         try {
@@ -46,7 +69,21 @@ const PaymentForm = () => {
                 axios.get('/api/invoices')
             ]);
             setCustomers(custRes.data.data);
-            setInvoices(invRes.data.data);
+            const loadedInvoices = invRes.data.data;
+            setInvoices(loadedInvoices);
+
+            // Prefill amount if we are creating a new payment and invoiceId is in query
+            if (!isEdit && queryInvoiceId) {
+                const inv = loadedInvoices.find(i => i._id === queryInvoiceId);
+                if (inv) {
+                    setForm(prev => ({
+                        ...prev,
+                        customerId: queryCustomerId || (inv.customerId?._id || inv.customerId || ''),
+                        invoiceId: queryInvoiceId,
+                        amount: (inv.grandTotal || 0) - (inv.amountPaid || 0)
+                    }));
+                }
+            }
         } catch (err) {
             console.error('Error fetching data', err);
         }
@@ -60,10 +97,11 @@ const PaymentForm = () => {
                 customerId: p.customerId?._id || p.customerId || '',
                 invoiceId: p.invoiceId?._id || p.invoiceId || '',
                 amount: p.amount || '',
-                paymentMode: p.paymentMode || 'Bank Transfer',
+                paymentMode: p.paymentMode === 'Bank Transfer' ? 'Bank' : (p.paymentMode === 'UPI / QR' ? 'UPI' : (p.paymentMode || 'Bank')),
                 referenceNumber: p.referenceNumber || '',
                 paymentDate: p.paymentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-                notes: p.notes || ''
+                notes: p.notes || '',
+                thankYouNote: p.thankYouNote || 'Thank you for your business!'
             });
         } catch (err) {
             console.error('Error fetching payment', err);
@@ -79,7 +117,7 @@ const PaymentForm = () => {
             if (field === 'invoiceId' && value) {
                 const inv = invoices.find(i => i._id === value);
                 if (inv) {
-                    next.amount = inv.grandTotal - inv.amountPaid;
+                    next.amount = (inv.grandTotal || 0) - (inv.amountPaid || 0);
                 }
             }
 
@@ -137,13 +175,18 @@ const PaymentForm = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {isEdit && (
+                        <button type="button" onClick={handleDeletePayment} className="p-2 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Delete Payment">
+                            <Trash2 size={20} />
+                        </button>
+                    )}
                     <button type="button" onClick={() => navigate('/payments')} className="btn-secondary">
                         Cancel
                     </button>
                     <button type="button" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Record Payment'}
+                        {loading ? 'Saving...' : (isEdit ? 'Update Payment' : 'Record Payment')}
                     </button>
                 </div>
             </div>
@@ -191,7 +234,7 @@ const PaymentForm = () => {
                             <option value="">None (Advance Payment)</option>
                             {availableInvoices.map(inv => (
                                 <option key={inv._id} value={inv._id}>
-                                    {inv.invoiceNumber} - Due: ₹{(inv.grandTotal - inv.amountPaid).toFixed(2)}
+                                    {inv.invoiceNumber} - Due: ₹{((inv.grandTotal || 0) - (inv.amountPaid || 0)).toFixed(2)}
                                 </option>
                             ))}
                         </select>
@@ -228,7 +271,7 @@ const PaymentForm = () => {
                             value={form.paymentMode}
                             onChange={e => handleChange('paymentMode', e.target.value)}
                         >
-                            <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+                            <option value="Bank">Bank Transfer (NEFT/RTGS)</option>
                             <option value="UPI">UPI / QR</option>
                             <option value="Cash">Cash</option>
                             <option value="Cheque">Cheque</option>
@@ -251,6 +294,16 @@ const PaymentForm = () => {
                             value={form.notes}
                             onChange={e => handleChange('notes', e.target.value)}
                             placeholder="Add internal notes about this payment..."
+                        />
+                    </InputRow>
+
+                    <InputRow label="Thank You Note">
+                        <input
+                            type="text"
+                            className="input-field max-w-md"
+                            value={form.thankYouNote}
+                            onChange={e => handleChange('thankYouNote', e.target.value)}
+                            placeholder="e.g. Thank you for your business!"
                         />
                     </InputRow>
                 </div>

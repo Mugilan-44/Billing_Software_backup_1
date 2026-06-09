@@ -1,8 +1,25 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, ShoppingCart, Save, Info, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickItemModal from '../components/QuickItemModal';
+import { AuthContext } from '../context/AuthContext';
+
+const formatCustomerAddress = (addr, flatFallback) => {
+    if (!addr) return flatFallback || '';
+    if (typeof addr === 'string') return addr;
+    const hasValues = Object.values(addr).some(val => val !== undefined && val !== null && String(val).trim() !== '');
+    if (!hasValues) return flatFallback || '';
+    const streetParts = [addr.street1, addr.street2, addr.street].filter(Boolean).map(s => String(s).trim()).join(', ');
+    return [
+        streetParts,
+        addr.city,
+        addr.state,
+        addr.zipCode || addr.pincode || addr.zip
+    ].filter(v => v && String(v).trim() !== '').join(', ');
+};
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -20,33 +37,186 @@ const SalesOrderForm = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const quoteId = searchParams.get('quoteId');
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showItemModal, setShowItemModal] = useState(false);
+    const [activeItemRowIdx, setActiveItemRowIdx] = useState(null);
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setCustomerId(newCustomer._id);
+    };
+
+    const handleItemCreated = (newItem) => {
+        setCatalogItems(prev => [...prev, newItem]);
+        if (activeItemRowIdx !== null) {
+            handleItemChange(activeItemRowIdx, 'itemId', newItem._id);
+        }
+    };
+
+    // Form State
+    const { taxSystemMode } = useContext(AuthContext);
     const [customerId, setCustomerId] = useState('');
     const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
     const [notes, setNotes] = useState('');
+    const [includeTerms, setIncludeTerms] = useState(true);
+    const [includeSignature, setIncludeSignature] = useState(false);
+    const [includeBankDetails, setIncludeBankDetails] = useState(true);
+    const [includeUpiQr, setIncludeUpiQr] = useState(true);
     const [discount, setDiscount] = useState(0);
     const [items, setItems] = useState([]);
+    const [buyersRef, setBuyersRef] = useState('');
+    const [modeOfPayment, setModeOfPayment] = useState('');
 
-    const [totals, setTotals] = useState({ subTotal: 0, taxTotal: 0, grandTotal: 0 });
+    const [taxMode, setTaxMode] = useState('WITH_TAX');
+    const [isAutoNumber, setIsAutoNumber] = useState(true);
+    const [orderNumber, setOrderNumber] = useState('');
+    const [companySettings, setCompanySettings] = useState(null);
+    const [orderNumberPlaceholder, setOrderNumberPlaceholder] = useState('SO-0000X');
+
+    // Numbering Customization States
+    const [showNumberingConfig, setShowNumberingConfig] = useState(false);
+    const [customPrefix, setCustomPrefix] = useState('');
+    const [customNextNumber, setCustomNextNumber] = useState(1);
+    const [customDigits, setCustomDigits] = useState(4);
+    const [savingSettings, setSavingSettings] = useState(false);
+
+    const [isTaxed, setIsTaxed] = useState(true);
+    const [taxType, setTaxType] = useState('GST');
+    const [taxRate, setTaxRate] = useState(18);
+    const [useProductSpecificTax, setUseProductSpecificTax] = useState(true);
+    const [tdsPercentage, setTdsPercentage] = useState(0);
+    const [tcsPercentage, setTcsPercentage] = useState(0);
+    const [tdsTcsType, setTdsTcsType] = useState('None'); // 'None', 'TDS', 'TCS'
+    const [adjustment, setAdjustment] = useState(0);
+
+    const [taxSystems, setTaxSystems] = useState(() => {
+        const saved = localStorage.getItem('invoice_tax_systems');
+        if (saved) {
+            try { return JSON.parse(saved); } catch (e) {}
+        }
+        return [
+            { name: 'Commission or Brokerage', rate: 2, section: 'Section 393(1) Sl1(ii)', status: 'Active' },
+            { name: 'Dividend', rate: 10, section: 'Section 393(1) Sl7', status: 'Active' },
+            { name: 'GST', rate: 18, section: 'Section 393(3) Sl5D(a)', status: 'Active' },
+            { name: 'Other Interest than securities', rate: 10, section: 'Section 393(1) Sl5(iii)', status: 'Active' },
+            { name: 'Payment of contractors for Others', rate: 2, section: 'Section 393(1) Sl6(ii)', status: 'Active' },
+            { name: 'Payment of contractors HUF/Indiv', rate: 1, section: 'Section 393(1) Sl6(i)D(a)', status: 'Active' },
+            { name: 'Technical Fees (2%)', rate: 2, section: 'Section 393(1) Sl6(iii)D(a)', status: 'Active' }
+        ];
+    });
+
+    const [openTaxModal, setOpenTaxModal] = useState(false);
+    const [newTaxName, setNewTaxName] = useState('');
+    const [newTaxRate, setNewTaxRate] = useState('');
+    const [newTaxSection, setNewTaxSection] = useState('');
+    const [newTaxStatus, setNewTaxStatus] = useState('Active');
+    const [pendingItemIndex, setPendingItemIndex] = useState(-1);
+
+    const [totals, setTotals] = useState({ subTotal: 0, taxTotal: 0, tdsAmount: 0, tcsAmount: 0, grandTotal: 0 });
+
+    const handleSaveTaxPreset = (e) => {
+        e?.preventDefault();
+        if (!newTaxName || !newTaxRate) {
+            alert('Please enter both Tax Name and Rate');
+            return;
+        }
+        const rateVal = Number(newTaxRate);
+        if (isNaN(rateVal)) {
+            alert('Please enter a valid rate percentage');
+            return;
+        }
+
+        const newPreset = {
+            name: newTaxName,
+            rate: rateVal,
+            section: newTaxSection || 'Custom',
+            status: newTaxStatus || 'Active'
+        };
+
+        const updated = [...taxSystems, newPreset];
+        setTaxSystems(updated);
+        localStorage.setItem('invoice_tax_systems', JSON.stringify(updated));
+
+        if (pendingItemIndex >= 0) {
+            const updatedItems = [...items];
+            updatedItems[pendingItemIndex].gstPercentage = rateVal;
+            setItems(updatedItems);
+            setTaxType(newTaxName);
+        } else {
+            setTaxType(newTaxName);
+            setTaxRate(rateVal);
+        }
+
+        setNewTaxName('');
+        setNewTaxRate('');
+        setNewTaxSection('');
+        setNewTaxStatus('Active');
+        setOpenTaxModal(false);
+        setPendingItemIndex(-1);
+    };
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [custRes, itemRes] = await Promise.all([
+                const [custRes, itemRes, settingsRes] = await Promise.all([
                     axios.get('/api/customers'),
-                    axios.get('/api/items')
+                    axios.get('/api/items'),
+                    axios.get('/api/settings')
                 ]);
                 const cList = custRes.data.data;
                 const iList = itemRes.data.data;
                 setCustomers(cList);
                 setCatalogItems(iList);
+                setCompanySettings(settingsRes.data.data);
 
-                if (quoteId) {
+                if (isEdit) {
+                    const orderRes = await axios.get(`/api/sales-orders/${id}`);
+                    const data = orderRes.data.data;
+                    setCustomerId(data.customerId?._id || data.customerId || '');
+                    setExpectedDeliveryDate(data.expectedDeliveryDate?.split('T')[0] || '');
+                    setNotes(data.notes || '');
+                    setIncludeTerms(data.includeTerms !== false);
+                    setIncludeSignature(data.includeSignature || false);
+                    setIncludeBankDetails(data.includeBankDetails !== false);
+                    setIncludeUpiQr(data.includeUpiQr !== false);
+                    setDiscount(data.discount || 0);
+                    setBuyersRef(data.buyersRef || '');
+                    setModeOfPayment(data.modeOfPayment || '');
+                    setIsTaxed(data.isTaxed !== false);
+                    setTaxType(data.taxType || 'GST');
+                    if (data.taxRate === null || data.taxRate === undefined) {
+                        setUseProductSpecificTax(true);
+                        setTaxRate('');
+                    } else {
+                        setUseProductSpecificTax(false);
+                        setTaxRate(data.taxRate);
+                    }
+                    setTdsTcsType(data.tdsTcsType || 'None');
+                    setTdsPercentage(data.tdsPercentage || 0);
+                    setTcsPercentage(data.tcsPercentage || 0);
+                    setAdjustment(data.adjustment || 0);
+                    setTaxMode(data.taxMode || 'WITH_TAX');
+                    setIsAutoNumber(false);
+                    setOrderNumberPlaceholder(data.orderNumber || '');
+                    setOrderNumber(data.orderNumber || '');
+                    if (data.items?.length > 0) {
+                        setItems(data.items.map(i => ({
+                            itemId: i.itemId?._id || i.itemId || '',
+                            name: i.name || '',
+                            quantity: i.quantity || 1,
+                            rate: i.rate || 0,
+                            gstPercentage: i.gstPercentage || i.gstPercent || 0
+                        })));
+                    }
+                } else if (quoteId) {
                     const quoteRes = await axios.get(`/api/quotations/${quoteId}`);
                     const qt = quoteRes.data.data;
                     if (qt.customerId) setCustomerId(qt.customerId._id || qt.customerId);
@@ -57,6 +227,23 @@ const SalesOrderForm = () => {
                     }
                     if (qt.discount) setDiscount(qt.discount);
                     if (qt.notes) setNotes(qt.notes);
+                    if (qt.includeTerms !== undefined) setIncludeTerms(qt.includeTerms);
+                    if (qt.includeSignature !== undefined) setIncludeSignature(qt.includeSignature);
+                    if (qt.includeBankDetails !== undefined) setIncludeBankDetails(qt.includeBankDetails);
+                    if (qt.includeUpiQr !== undefined) setIncludeUpiQr(qt.includeUpiQr);
+                    setIsTaxed(qt.isTaxed !== false);
+                    setTaxType(qt.taxType || 'GST');
+                    if (qt.taxRate === null || qt.taxRate === undefined) {
+                        setUseProductSpecificTax(true);
+                        setTaxRate('');
+                    } else {
+                        setUseProductSpecificTax(false);
+                        setTaxRate(qt.taxRate);
+                    }
+                    setTdsTcsType(qt.tdsTcsType || 'None');
+                    setTdsPercentage(qt.tdsPercentage || 0);
+                    setTcsPercentage(qt.tcsPercentage || 0);
+                    setAdjustment(qt.adjustment || 0);
                 }
             } catch (err) {
                 console.error('Error fetching data for sales order', err);
@@ -64,26 +251,176 @@ const SalesOrderForm = () => {
         };
         fetchData();
 
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 7);
-        setExpectedDeliveryDate(defaultDate.toISOString().split('T')[0]);
-    }, [quoteId]);
+        if (!isEdit) {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + 7);
+            setExpectedDeliveryDate(defaultDate.toISOString().split('T')[0]);
+        }
+    }, [quoteId, id]);
+
+    useEffect(() => {
+        if (isEdit || !companySettings) return;
+        const numbering = companySettings.numberingSettings?.salesOrder;
+        const modeSettings = taxMode === 'WITH_TAX' ? numbering?.withTax : numbering?.withoutTax;
+        
+        if (modeSettings) {
+            setIsAutoNumber(modeSettings.auto);
+            const prefix = modeSettings.prefix || '';
+            const nextNum = modeSettings.nextNumber || 1;
+            const digits = modeSettings.digits || 4;
+            setOrderNumberPlaceholder(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setOrderNumber(`${prefix}${String(nextNum).padStart(digits, '0')}`);
+            setCustomPrefix(prefix);
+            setCustomNextNumber(nextNum);
+            setCustomDigits(digits);
+        }
+    }, [taxMode, companySettings, isEdit]);
+
+    const handleSaveNumberingConfig = async () => {
+        setSavingSettings(true);
+        try {
+            const modeKey = taxMode === 'WITH_TAX' ? 'withTax' : 'withoutTax';
+            const updatedNumberingSettings = {
+                ...companySettings.numberingSettings,
+                salesOrder: {
+                    ...companySettings.numberingSettings?.salesOrder,
+                    [modeKey]: {
+                        auto: true,
+                        prefix: customPrefix,
+                        nextNumber: Number(customNextNumber),
+                        digits: Number(customDigits)
+                    }
+                }
+            };
+            const res = await axios.put('/api/settings', { numberingSettings: updatedNumberingSettings });
+            setCompanySettings(res.data.data);
+            setShowNumberingConfig(false);
+        } catch (err) {
+            console.error('Error saving numbering config', err);
+            alert('Failed to save numbering configuration');
+        } finally {
+            setSavingSettings(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isEdit) return;
+        if (taxSystemMode === 'WITH_TAX') {
+            setTaxMode('WITH_TAX');
+            setIsTaxed(true);
+        } else if (taxSystemMode === 'WITHOUT_TAX') {
+            setTaxMode('WITHOUT_TAX');
+            setIsTaxed(false);
+        } else {
+            setTaxMode('WITH_TAX');
+            setIsTaxed(true);
+        }
+    }, [taxSystemMode, isEdit]);
+
+    const getGstSummaryDisplay = () => {
+        if (!isTaxed || taxType !== 'GST') return null;
+        if (!useProductSpecificTax) {
+            const rate = Number(taxRate || 0);
+            const halfRate = (rate / 2).toFixed(1).replace(/\.0$/, '');
+            const halfAmount = (totals.taxTotal / 2).toFixed(2);
+            return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+        } else {
+            const rateMap = {};
+            items.forEach(i => {
+                if (i.itemId) {
+                    const amount = (i.quantity || 0) * (i.rate || 0);
+                    const rate = Number(i.gstPercentage || 0);
+                    if (rate > 0) {
+                        const itemTax = amount * (rate / 100);
+                        rateMap[rate] = (rateMap[rate] || 0) + itemTax;
+                    }
+                }
+            });
+            const lines = Object.entries(rateMap).map(([rate, taxVal]) => {
+                const halfRate = (Number(rate) / 2).toFixed(1).replace(/\.0$/, '');
+                const halfAmount = (taxVal / 2).toFixed(2);
+                return `CGST @ ${halfRate}% (₹${halfAmount}) + SGST @ ${halfRate}% (₹${halfAmount})`;
+            });
+            return lines.join(' + ');
+        }
+    };
 
     useEffect(() => {
         let sub = 0;
         let tax = 0;
         items.forEach(i => {
             const amount = i.quantity * i.rate;
-            const t = amount * (i.gstPercentage / 100);
+            const currentTaxRate = isTaxed
+                ? (useProductSpecificTax ? (i.gstPercentage || 0) : (taxRate !== undefined && taxRate !== '' ? Number(taxRate) : (i.gstPercentage || 0)))
+                : 0;
+            const t = amount * (currentTaxRate / 100);
             sub += amount;
             tax += t;
         });
+
+        let tdsAmount = 0;
+        let tcsAmount = 0;
+        if (tdsTcsType === 'TDS') {
+            tdsAmount = sub * (tdsPercentage / 100);
+        } else if (tdsTcsType === 'TCS') {
+            tcsAmount = sub * (tcsPercentage / 100);
+        }
+
         setTotals({
             subTotal: sub,
             taxTotal: tax,
-            grandTotal: Math.round(sub + tax - Number(discount)),
+            tdsAmount,
+            tcsAmount,
+            grandTotal: Math.round(sub + tax - Number(discount) - tdsAmount + tcsAmount + Number(adjustment || 0)),
         });
-    }, [items, discount]);
+    }, [items, discount, isTaxed, taxRate, useProductSpecificTax, tdsTcsType, tdsPercentage, tcsPercentage, adjustment]);
+
+    const getProductSpecificTaxBreakdown = () => {
+        if (!isTaxed || !useProductSpecificTax) return [];
+        const breakdown = {};
+        
+        const savedSystems = localStorage.getItem('invoice_tax_systems');
+        let taxSystems = [
+            { name: 'Commission or Brokerage', rate: 2 },
+            { name: 'Dividend', rate: 10 },
+            { name: 'GST', rate: 18 },
+            { name: 'Other Interest than securities', rate: 10 },
+            { name: 'Payment of contractors for Others', rate: 2 },
+            { name: 'Payment of contractors HUF/Indiv', rate: 1 },
+            { name: 'Technical Fees (2%)', rate: 2 }
+        ];
+        if (savedSystems) {
+            try { taxSystems = JSON.parse(savedSystems); } catch (e) {}
+        }
+
+        items.forEach(i => {
+            if (i.itemId) {
+                const amount = (i.quantity || 0) * (i.rate || 0);
+                const taxRate = Number(i.gstPercentage || 0);
+                if (taxRate <= 0) return;
+
+                const taxAmount = amount * (taxRate / 100);
+
+                if (taxType === 'GST') {
+                    const halfRate = (taxRate / 2).toFixed(1).replace(/\.0$/, '');
+                    const halfAmount = taxAmount / 2;
+                    const cgstLabel = `CGST @ ${halfRate}%`;
+                    const sgstLabel = `SGST @ ${halfRate}%`;
+                    breakdown[cgstLabel] = (breakdown[cgstLabel] || 0) + halfAmount;
+                    breakdown[sgstLabel] = (breakdown[sgstLabel] || 0) + halfAmount;
+                } else {
+                    const matched = taxSystems.find(ts => ts.rate === taxRate);
+                    const taxName = matched ? matched.name : (taxType !== 'GST' ? taxType : 'Tax');
+                    const label = `${taxName} (${taxRate}%)`;
+                    breakdown[label] = (breakdown[label] || 0) + taxAmount;
+                }
+            }
+        });
+
+        return Object.entries(breakdown)
+            .filter(([_, amt]) => amt > 0)
+            .map(([label, amount]) => ({ label, amount }));
+    };
 
     const handleAddItem = () => {
         if (catalogItems.length === 0) return;
@@ -117,13 +454,46 @@ const SalesOrderForm = () => {
         setLoading(true);
         setError('');
 
+        const payload = {
+            customerId,
+            expectedDeliveryDate,
+            items: items.map(i => ({
+                itemId: i.itemId || undefined,
+                name: i.name,
+                quantity: i.quantity,
+                rate: i.rate,
+                gstPercentage: isTaxed ? (useProductSpecificTax ? Number(i.gstPercentage || 0) : (taxRate !== undefined && taxRate !== '' ? Number(taxRate) : i.gstPercentage)) : 0
+            })),
+            discount: Number(discount),
+            notes,
+            includeTerms,
+            includeSignature,
+            includeBankDetails,
+            includeUpiQr,
+            quotationId: quoteId || undefined,
+            buyersRef,
+            modeOfPayment,
+            isTaxed,
+            taxType: isTaxed ? taxType : 'None',
+            taxRate: isTaxed ? (useProductSpecificTax ? null : Number(taxRate)) : 0,
+            useProductSpecificTax,
+            tdsTcsType,
+            tdsPercentage: tdsTcsType === 'TDS' ? Number(tdsPercentage) : 0,
+            tcsPercentage: tdsTcsType === 'TCS' ? Number(tcsPercentage) : 0,
+            adjustment: Number(adjustment),
+            taxMode,
+            orderNumber: isAutoNumber ? undefined : orderNumber
+        };
+
         try {
-            await axios.post('/api/sales-orders', {
-                customerId, expectedDeliveryDate, items, discount: Number(discount), notes, quotationId: quoteId || undefined
-            });
+            if (isEdit) {
+                await axios.put(`/api/sales-orders/${id}`, payload);
+            } else {
+                await axios.post('/api/sales-orders', payload);
+            }
             navigate('/orders');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create sales order');
+            setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} sales order`);
             setLoading(false);
         }
     };
@@ -138,7 +508,7 @@ const SalesOrderForm = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">Create Sales Order</h1>
+                        <h1 className="text-lg font-bold text-slate-900">{isEdit ? 'Edit Sales Order' : 'Create Sales Order'}</h1>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Order Processing</p>
                     </div>
                 </div>
@@ -149,7 +519,7 @@ const SalesOrderForm = () => {
                     <button type="submit" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save Sales Order'}
+                        {loading ? 'Saving...' : (isEdit ? 'Update Sales Order' : 'Save Sales Order')}
                     </button>
                 </div>
             </div>
@@ -175,7 +545,7 @@ const SalesOrderForm = () => {
                                 if (cust) setCustomerId(cust._id);
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => setShowCustomerModal(true)}
                             addNewLabel="New Customer"
                         />
                         {customerId && (
@@ -183,10 +553,118 @@ const SalesOrderForm = () => {
                                 <Info size={14} className="mt-0.5 text-blue-400 shrink-0" />
                                 <div>
                                     <p className="font-bold text-slate-700 mb-0.5">Billing To:</p>
-                                    {customers.find(c => c._id === customerId)?.billingAddress?.street || 'No address provided'}
+                                    {formatCustomerAddress(
+                                        customers.find(c => c._id === customerId)?.billingAddress,
+                                        customers.find(c => c._id === customerId)?.address
+                                    ) || 'No address provided'}
                                 </div>
                             </div>
                         )}
+                    </InputRow>
+
+
+
+                    <InputRow label="Sales Order Number" required>
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                        checked={isAutoNumber}
+                                        onChange={(e) => setIsAutoNumber(e.target.checked)}
+                                        disabled={isEdit}
+                                    />
+                                    <span className="text-xs font-semibold text-slate-700">Auto Generate</span>
+                                </label>
+                                
+                                {isAutoNumber ? (
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="text" 
+                                            className="input-field max-w-xs bg-slate-50 cursor-not-allowed text-slate-500 font-mono text-xs font-bold uppercase tracking-wider"
+                                            value={orderNumberPlaceholder} 
+                                            disabled 
+                                        />
+                                        {!isEdit && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNumberingConfig(prev => !prev)}
+                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline focus:outline-none"
+                                            >
+                                                {showNumberingConfig ? 'Hide Customization' : 'Customize Format'}
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <input 
+                                        type="text" 
+                                        className="input-field max-w-xs font-mono"
+                                        value={orderNumber}
+                                        onChange={(e) => setOrderNumber(e.target.value)}
+                                        placeholder="e.g. SO-WT-1002"
+                                        required={!isAutoNumber}
+                                        disabled={isEdit}
+                                    />
+                                )}
+                            </div>
+                            
+                            {showNumberingConfig && !isEdit && (
+                                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3 max-w-md animate-in fade-in duration-250">
+                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Customize Auto-Numbering Format</h4>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Prefix</label>
+                                            <input 
+                                                type="text" 
+                                                className="input-field font-mono text-xs" 
+                                                value={customPrefix}
+                                                onChange={(e) => setCustomPrefix(e.target.value)}
+                                                placeholder="e.g. SO-WT-"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Next Number</label>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                className="input-field text-xs" 
+                                                value={customNextNumber}
+                                                onChange={(e) => setCustomNextNumber(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Digits (Padding)</label>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                max="10"
+                                                className="input-field text-xs" 
+                                                value={customDigits}
+                                                onChange={(e) => setCustomDigits(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2 pt-1">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowNumberingConfig(false)}
+                                            className="px-3 py-1 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            disabled={savingSettings}
+                                            onClick={handleSaveNumberingConfig}
+                                            className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700"
+                                        >
+                                            {savingSettings ? 'Saving...' : 'Save & Apply'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </InputRow>
 
                     <InputRow label="Expected Delivery" required helper="Date by which order should be fulfilled">
@@ -195,6 +673,123 @@ const SalesOrderForm = () => {
                             <input type="date" className="input-field" value={expectedDeliveryDate} onChange={e => setExpectedDeliveryDate(e.target.value)} required />
                         </div>
                     </InputRow>
+
+                    <InputRow label="Buyer's Reference" helper="Reference number or PO details from buyer">
+                        <input type="text" className="input-field max-w-md" value={buyersRef} onChange={e => setBuyersRef(e.target.value)} placeholder="e.g. PO-12345" />
+                    </InputRow>
+
+                    <InputRow label="Mode of Payment" helper="Preferred payment method for this order">
+                        <select className="select-premium max-w-md" value={modeOfPayment} onChange={e => setModeOfPayment(e.target.value)}>
+                            <option value="">Select Payment Mode</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Card">Card</option>
+                            <option value="Net Banking">Net Banking</option>
+                        </select>
+                    </InputRow>
+
+                    {taxSystemMode === 'OVERALL' && (
+                        <InputRow label="Tax Setting" helper="Choose whether to record this order as Tax or Tax Free">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsTaxed(true);
+                                        if (taxType === 'None') setTaxType('GST');
+                                    }}
+                                    className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    Tax
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsTaxed(false);
+                                    }}
+                                    className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${!isTaxed ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    Tax Free
+                                </button>
+                            </div>
+                        </InputRow>
+                    )}
+
+                    {isTaxed && (
+                        <>
+                            <InputRow label="Tax Application Mode" helper="Apply a single tax rate globally or use product-specific tax rates">
+                                <div className="flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setUseProductSpecificTax(true)}
+                                        className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${useProductSpecificTax ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    >
+                                        Product Specific
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUseProductSpecificTax(false)}
+                                        className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${!useProductSpecificTax ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                    >
+                                        Global Rate
+                                    </button>
+                                </div>
+                            </InputRow>
+
+                            {!useProductSpecificTax && (
+                                <InputRow label="Tax System & Rate" helper="Select the tax system and global percentage rate">
+                                    <div className="flex items-center gap-4 max-w-md">
+                                        <select
+                                            className="input-field max-w-[200px]"
+                                            value={taxSystems.some(ts => ts.name === taxType && ts.rate === Number(taxRate)) ? `${taxType}|${taxRate}` : ''}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'ADD_NEW') {
+                                                    setPendingItemIndex(-1);
+                                                    setOpenTaxModal(true);
+                                                } else if (e.target.value) {
+                                                    const [name, rate] = e.target.value.split('|');
+                                                    setTaxType(name);
+                                                    setTaxRate(Number(rate));
+                                                }
+                                            }}
+                                        >
+                                            <option value="">Select Tax System</option>
+                                            {taxSystems.filter(ts => ts.status === 'Active').map((ts, sIdx) => (
+                                                <option key={sIdx} value={`${ts.name}|${ts.rate}`}>
+                                                    {ts.name} ({ts.rate}%)
+                                                </option>
+                                            ))}
+                                            <option value="ADD_NEW" className="text-blue-600 font-semibold">+ Add New Tax...</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPendingItemIndex(-1);
+                                                setOpenTaxModal(true);
+                                            }}
+                                            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl border border-blue-200 whitespace-nowrap animate-in fade-in"
+                                        >
+                                            + Add Preset
+                                        </button>
+                                        <div className="relative flex-1 max-w-[120px]">
+                                            <input
+                                                type="number"
+                                                min="0" max="100" step="0.1"
+                                                className="input-field pr-8"
+                                                value={taxRate}
+                                                onChange={(e) => setTaxRate(e.target.value)}
+                                                placeholder="Rate"
+                                            />
+                                            <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-semibold">%</span>
+                                        </div>
+                                    </div>
+                                </InputRow>
+                            )}
+
+
+                        </>
+                    )}
                 </div>
 
                 {/* Item Details Table */}
@@ -207,12 +802,12 @@ const SalesOrderForm = () => {
                         <table className="w-full text-left table-fixed">
                             <thead>
                                 <tr className="bg-white border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase">
-                                    <th className="px-4 py-3 w-6/12 tracking-wider">Item Details</th>
-                                    <th className="px-4 py-3 w-20 border-l border-slate-50 tracking-wider text-right">Qty</th>
-                                    <th className="px-4 py-3 w-32 border-l border-slate-50 tracking-wider text-right">Rate</th>
-                                    <th className="px-4 py-3 w-24 border-l border-slate-50 tracking-wider text-right">Tax</th>
-                                    <th className="px-4 py-3 w-32 border-l border-slate-50 tracking-wider text-right pr-6">Amount</th>
-                                    <th className="w-10"></th>
+                                    <th className={`px-4 py-3 tracking-wider ${isTaxed && useProductSpecificTax ? 'w-[35%]' : 'w-[50%]'}`}>Item Details</th>
+                                    <th className="px-4 py-3 w-[10%] border-l border-slate-50 tracking-wider text-right pr-4">Quantity</th>
+                                    <th className="px-4 py-3 w-[15%] border-l border-slate-50 tracking-wider text-right pr-4">Rate (₹)</th>
+                                    {isTaxed && useProductSpecificTax && <th className="px-4 py-3 w-[15%] border-l border-slate-50 tracking-wider text-right pr-4">Tax System</th>}
+                                    <th className="px-4 py-3 w-[15%] border-l border-slate-50 tracking-wider text-right pr-4">Amount (₹)</th>
+                                    <th className="w-12"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -228,9 +823,17 @@ const SalesOrderForm = () => {
                                                     if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                 }}
                                                 placeholder="Select Item"
-                                                onAddNew={() => navigate('/items/new')}
+                                                onAddNew={() => {
+                                                    setActiveItemRowIdx(idx);
+                                                    setShowItemModal(true);
+                                                }}
                                                 addNewLabel="New Item"
                                             />
+                                            {item.itemId && isTaxed && !useProductSpecificTax && (
+                                                <div className="text-[10px] font-bold text-slate-400 mt-1.5 px-1 uppercase tracking-tight">
+                                                    Tax: {item.gstPercentage}%
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-3 border-l border-slate-50/50">
                                             <input type="number" min="1" className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent" value={item.quantity} onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)} />
@@ -238,12 +841,37 @@ const SalesOrderForm = () => {
                                         <td className="p-3 border-l border-slate-50/50">
                                             <div className="relative">
                                                 <span className="absolute left-0 top-1 text-slate-400 text-xs">₹</span>
-                                                <input type="number" min="0" step="0.01" className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent" value={item.rate} onChange={(e) => handleItemChange(idx, 'rate', e.target.value)} />
+                                                <input type="number" min="0" step="0.01" className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent pl-4" value={item.rate} onChange={(e) => handleItemChange(idx, 'rate', e.target.value)} />
                                             </div>
                                         </td>
-                                        <td className="p-3 border-l border-slate-50/50 text-right">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">{item.gstPercentage}%</span>
-                                        </td>
+                                        {isTaxed && useProductSpecificTax && (
+                                            <td className="p-3 border-l border-slate-50/50">
+                                                <select
+                                                    className="w-full text-xs bg-transparent border-0 border-b border-slate-200 focus:ring-0 focus:border-blue-500 py-1"
+                                                    value={item.gstPercentage}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'ADD_NEW') {
+                                                            setPendingItemIndex(idx);
+                                                            setOpenTaxModal(true);
+                                                        } else {
+                                                            const rateVal = Number(e.target.value);
+                                                            handleItemChange(idx, 'gstPercentage', rateVal);
+                                                            const matched = taxSystems.find(ts => ts.rate === rateVal && ts.status === 'Active');
+                                                            if (matched) {
+                                                                setTaxType(matched.name);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    {taxSystems.filter(ts => ts.status === 'Active').map((ts, sIdx) => (
+                                                        <option key={sIdx} value={ts.rate}>
+                                                            {ts.name} ({ts.rate}%)
+                                                        </option>
+                                                    ))}
+                                                    <option value="ADD_NEW" className="text-blue-600 font-semibold">+ Add New Tax...</option>
+                                                </select>
+                                            </td>
+                                        )}
                                         <td className="p-3 text-right align-middle pr-6 border-l border-slate-50/50">
                                             <span className="text-sm font-bold text-slate-700">₹{((item.quantity || 0) * (item.rate || 0)).toFixed(2)}</span>
                                         </td>
@@ -275,6 +903,44 @@ const SalesOrderForm = () => {
                                 onChange={e => setNotes(e.target.value)}
                                 placeholder="Order terms, specific branding requirements, or delivery instructions..."
                             />
+                            <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeTerms}
+                                        onChange={(e) => setIncludeTerms(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Terms & Conditions on Sales Order</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeSignature}
+                                        onChange={(e) => setIncludeSignature(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Digital/Authorized Signature</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeBankDetails}
+                                        onChange={(e) => setIncludeBankDetails(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include Bank Details</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        checked={includeUpiQr}
+                                        onChange={(e) => setIncludeUpiQr(e.target.checked)}
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Include UPI and QR Code</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
@@ -292,14 +958,124 @@ const SalesOrderForm = () => {
                                         onChange={e => setDiscount(e.target.value)}
                                     />
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500 font-medium">GST Total</span>
-                                    <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
+                                {isTaxed && (
+                                    <div className="flex flex-col text-slate-650 text-sm gap-1 pt-1">
+                                        {useProductSpecificTax ? (
+                                            getProductSpecificTaxBreakdown().map((row, idx) => (
+                                                <div key={idx} className="flex justify-between">
+                                                    <span>{row.label}</span>
+                                                    <span className="text-slate-900 font-bold">₹{row.amount.toFixed(2)}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex justify-between">
+                                                <span>{taxType === 'GST' ? 'GST Total' : 'Tax Total'} ({taxType} {taxRate}%)</span>
+                                                <span className="text-slate-900 font-bold">₹{totals.taxTotal.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {!useProductSpecificTax && taxType === 'GST' && totals.taxTotal > 0 && (
+                                            <div className="text-right text-[11px] font-semibold text-slate-550 bg-slate-100/50 p-2 rounded-lg border border-slate-100 mt-1">
+                                                {getGstSummaryDisplay()}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="radio"
+                                                id="tdsTcsNone"
+                                                name="tdsTcsType"
+                                                checked={tdsTcsType === 'None'}
+                                                onChange={() => {
+                                                    setTdsTcsType('None');
+                                                    setTdsPercentage(0);
+                                                    setTcsPercentage(0);
+                                                }}
+                                                className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                            />
+                                            <label htmlFor="tdsTcsNone" className="text-gray-600 font-medium">None</label>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="radio"
+                                                id="tds"
+                                                name="tdsTcsType"
+                                                checked={tdsTcsType === 'TDS'}
+                                                onChange={() => {
+                                                    setTdsTcsType('TDS');
+                                                    setTdsPercentage(2);
+                                                    setTcsPercentage(0);
+                                                }}
+                                                className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                            />
+                                            <label htmlFor="tds" className="text-gray-600 font-medium">TDS</label>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="radio"
+                                                id="tcs"
+                                                name="tdsTcsType"
+                                                checked={tdsTcsType === 'TCS'}
+                                                onChange={() => {
+                                                    setTdsTcsType('TCS');
+                                                    setTcsPercentage(1);
+                                                    setTdsPercentage(0);
+                                                }}
+                                                className="text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                            />
+                                            <label htmlFor="tcs" className="text-gray-600 font-medium whitespace-nowrap">TCS</label>
+                                        </div>
+                                        {tdsTcsType !== 'None' && (
+                                            <select
+                                                className="border-slate-300 rounded text-[10px] py-0.5 px-1.5 w-18 shadow-sm text-slate-500 bg-white"
+                                                value={tdsTcsType === 'TDS' ? tdsPercentage : tcsPercentage}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    if (tdsTcsType === 'TDS') {
+                                                        setTdsPercentage(val);
+                                                        setTcsPercentage(0);
+                                                    } else {
+                                                        setTcsPercentage(val);
+                                                        setTdsPercentage(0);
+                                                    }
+                                                }}
+                                            >
+                                                <option value={0}>0%</option>
+                                                <option value={1}>1%</option>
+                                                <option value={2}>2%</option>
+                                                <option value={5}>5%</option>
+                                                <option value={10}>10%</option>
+                                                <option value={18}>18%</option>
+                                            </select>
+                                        )}
+                                    </div>
+                                    {tdsTcsType === 'TDS' && (
+                                        <span className="text-red-500 font-medium">- ₹{totals.tdsAmount.toFixed(2)}</span>
+                                    )}
+                                    {tdsTcsType === 'TCS' && (
+                                        <span className="text-green-600 font-medium">+ ₹{totals.tcsAmount.toFixed(2)}</span>
+                                    )}
+                                    {tdsTcsType === 'None' && (
+                                        <span className="text-slate-400 font-medium">₹0.00</span>
+                                    )}
                                 </div>
-                                <div className="flex justify-between items-center text-sm opacity-50">
-                                    <span className="text-slate-400 italic">Round Off</span>
-                                    <span className="text-slate-600">₹{(totals.grandTotal - (totals.subTotal + totals.taxTotal - Number(discount))).toFixed(2)}</span>
+
+                                <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-500 font-medium">Adjustment</span>
+                                        <input
+                                            type="number"
+                                            className="w-24 text-right px-2 py-1 border border-slate-200 rounded text-sm font-bold focus:ring-1 focus:ring-blue-400"
+                                            value={adjustment}
+                                            onChange={e => setAdjustment(e.target.value)}
+                                        />
+                                    </div>
+                                    <span className="text-slate-900 font-bold">₹{Number(adjustment || 0).toFixed(2)}</span>
                                 </div>
+
                                 <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
                                     <span className="text-slate-900 font-black uppercase tracking-wider text-xs">Grand Total</span>
                                     <span className="text-blue-600 font-black text-2xl">₹{totals.grandTotal.toFixed(2)}</span>
@@ -313,11 +1089,93 @@ const SalesOrderForm = () => {
                             Cancel
                         </button>
                         <button type="submit" disabled={loading} className="btn-primary px-10 shadow-lg shadow-blue-500/10">
-                            {loading ? 'Saving...' : 'Save Sales Order'}
+                            {loading ? 'Saving...' : (isEdit ? 'Update Sales Order' : 'Save Sales Order')}
                         </button>
                     </div>
                 </div>
             </form>
+
+            <QuickCustomerModal
+                isOpen={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSuccess={handleCustomerCreated}
+            />
+
+            <QuickItemModal
+                isOpen={showItemModal}
+                onClose={() => setShowItemModal(false)}
+                onSuccess={handleItemCreated}
+            />
+
+            {/* Tax Preset Creation Modal */}
+            {openTaxModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setOpenTaxModal(false)} />
+                    <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 md:p-8 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-2">Create Tax Preset</h3>
+                        <p className="text-xs text-slate-400 mb-6">Create a custom tax percentage rate and label preset to quickly select it later.</p>
+                        
+                        <form onSubmit={handleSaveTaxPreset} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Tax Name</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="e.g. Service Tax, Special GST"
+                                    value={newTaxName}
+                                    onChange={(e) => setNewTaxName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Rate (%)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                        className="input-field pr-8"
+                                        placeholder="e.g. 12.5"
+                                        value={newTaxRate}
+                                        onChange={(e) => setNewTaxRate(e.target.value)}
+                                        required
+                                    />
+                                    <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-semibold">%</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Section (Optional)</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="e.g. Section 194C"
+                                    value={newTaxSection}
+                                    onChange={(e) => setNewTaxSection(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenTaxModal(false)}
+                                    className="flex-1 btn-secondary justify-center py-2.5 text-xs font-bold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 btn-primary justify-center py-2.5 text-xs font-bold"
+                                >
+                                    Save Preset
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

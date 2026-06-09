@@ -1,20 +1,24 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
 import { Plus, Calculator, Settings, ReceiptText } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const Expenses = () => {
     const navigate = useNavigate();
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchExpenses();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchExpenses = async () => {
         try {
-            const res = await axios.get('/api/expenses');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/expenses${queryParam}`);
             setExpenses(res.data.data);
         } catch (error) {
             console.error('Error fetching expenses:', error);

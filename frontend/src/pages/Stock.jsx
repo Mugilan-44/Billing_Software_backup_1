@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Archive, Plus, Search, Settings, Filter, ArrowUpRight, ArrowDownRight, AlertTriangle } from 'lucide-react';
+import axios from '../utils/api';
+import { Archive, Plus, Search, Settings, Filter, ArrowUpRight, ArrowDownRight, AlertTriangle, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Stock = () => {

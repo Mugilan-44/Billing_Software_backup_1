@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
@@ -106,7 +106,12 @@ const VendorForm = () => {
             }
             setTimeout(() => navigate('/vendors'), 800);
         } catch (err) {
-            setSaveError(err.response?.data?.message || 'Failed to save vendor. Please try again.');
+            const errorData = err.response?.data;
+            if (errorData?.errors && Array.isArray(errorData.errors)) {
+                setSaveError(`Validation Error: ${errorData.errors.join(' | ')}`);
+            } else {
+                setSaveError(errorData?.message || 'Failed to save vendor. Please try again.');
+            }
             setLoading(false);
         }
     };

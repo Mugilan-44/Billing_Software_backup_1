@@ -8,6 +8,8 @@ export const protect = async (req, res, next) => {
 
     if (req.headers.authorization?.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
+    } else if (req.query.token) {
+        token = req.query.token;
     }
 
     if (!token) {
@@ -93,3 +95,6 @@ export const checkPermission = (moduleName) => {
 
 // ─── Legacy alias (kept for any remaining old references) ────────────────────
 export const authorize = authorizeRoles;
+
+// ─── New alias used by billing controllers ────────────────────────────────────
+export const authenticate = protect;

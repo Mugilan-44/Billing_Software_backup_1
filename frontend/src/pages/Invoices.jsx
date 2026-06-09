@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, Download, Share2 } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Invoices = () => {
     const navigate = useNavigate();
@@ -9,14 +10,17 @@ const Invoices = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date-desc');
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchInvoices();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchInvoices = async () => {
         try {
-            const res = await axios.get('/api/invoices');
+            setLoading(true);
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/invoices${queryParam}`);
             setInvoices(res.data.data);
         } catch (error) {
             console.error('Error fetching invoices', error);
@@ -25,31 +29,12 @@ const Invoices = () => {
         }
     };
 
-    const handleDownload = async (id, invoiceNumber) => {
-        try {
-            const token = JSON.parse(localStorage.getItem('user'))?.token || localStorage.getItem('token') || '';
-            const res = await axios.get(`/api/invoices/${id}/download`, {
-                responseType: 'blob',
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `${invoiceNumber}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-        } catch (error) {
-            console.error('Error downloading PDF', error);
-            alert('Error downloading PDF. File might not exist or backend is missing data.');
-        }
+    const handleDownload = (id, invoiceNumber) => {
+        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('user'))?.token || '';
+        window.location.href = `/api/invoices/${id}/download?token=${token}`;
     };
 
-    const handleShareWhatsApp = (invoice) => {
-        const link = `http://localhost:5173/public/invoice/${invoice._id}`;
-        const text = `Hello ${invoice.customerId?.companyName || 'Customer'},\n\nHere is your latest Invoice (${invoice.invoiceNumber}) for ₹${invoice.grandTotal.toFixed(2)}.\n\nView and download it securely here: ${link}\n\nThank you!`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+
 
 
 
@@ -67,19 +52,19 @@ const Invoices = () => {
     });
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className="space-y-6 animate-fade-in-up">
+            <div className="flex justify-between items-center glass-panel p-6 rounded-2xl shadow-sm">
                 <div>
-                    <h1 className="text-xl font-semibold text-gray-800">Invoices</h1>
-                    <p className="text-sm text-gray-500">Create, track, and manage all billing documents.</p>
+                    <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Invoices</h1>
+                    <p className="text-sm text-slate-500 mt-1">Create, track, and manage all billing documents.</p>
                 </div>
                 <Link to="/invoices/new" className="btn-primary flex items-center">
-                    <Plus size={18} className="mr-2" />
+                    <Plus size={18} />
                     Create Invoice
                 </Link>
             </div>
 
-            <div className="card">
+            <div className="glass-card p-6">
                 <div className="mb-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
                     <div className="relative w-full max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -109,18 +94,18 @@ const Invoices = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 text-left">
+                <div className="premium-table-container">
+                    <table className="min-w-full divide-y divide-slate-100/50">
+                        <thead className="bg-slate-50/50 text-left">
                             <tr>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice #</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100/50">
                             {loading ? (
                                 <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td></tr>
                             ) : sortedInvoices.length === 0 ? (
@@ -153,9 +138,9 @@ const Invoices = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                            ₹{inv.grandTotal.toFixed(2)}
+                                            ₹{(inv.grandTotal || 0).toFixed(2)}
                                             {inv.status !== 'Paid' && (
-                                                <div className="text-xs text-gray-500 font-normal mt-1">Bal: ₹{(inv.grandTotal - inv.amountPaid).toFixed(2)}</div>
+                                                <div className="text-xs text-gray-500 font-normal mt-1">Bal: ₹{((inv.grandTotal || 0) - (inv.amountPaid || 0)).toFixed(2)}</div>
                                             )}
                                         </td>
                                     </tr>

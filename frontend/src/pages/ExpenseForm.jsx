@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Calculator, Tag, Save, Info, Calendar, DollarSign, User, FileText, CreditCard } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import QuickCustomerModal from '../components/QuickCustomerModal';
+import QuickVendorModal from '../components/QuickVendorModal';
 
 const InputRow = ({ label, required, children, helper, error }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0 font-sans">
@@ -19,10 +21,16 @@ const InputRow = ({ label, required, children, helper, error }) => (
 
 const ExpenseForm = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEdit = Boolean(id);
 
     const [vendors, setVendors] = useState([]);
+    const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [showVendorModal, setShowVendorModal] = useState(false);
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
 
     const [expenseCategories, setExpenseCategories] = useState([
         'Advertising And Marketing',
@@ -52,6 +60,7 @@ const ExpenseForm = () => {
         category: 'Subcontractor',
         amount: '',
         vendorId: '',
+        customerId: '',
         reference: '',
         notes: '',
         status: 'Paid',
@@ -60,7 +69,34 @@ const ExpenseForm = () => {
 
     useEffect(() => {
         fetchVendors();
-    }, []);
+        fetchCustomers();
+        if (isEdit) {
+            fetchExpense();
+        }
+    }, [id]);
+
+    const fetchExpense = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`/api/expenses/${id}`);
+            const exp = res.data.data;
+            setFormData({
+                date: exp.date ? new Date(exp.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                category: exp.category || 'Subcontractor',
+                amount: exp.amount || '',
+                vendorId: exp.vendorId || '',
+                customerId: exp.customerId || '',
+                reference: exp.reference || '',
+                notes: exp.notes || '',
+                status: exp.status || 'Paid',
+                paymentMethod: exp.paymentMethod || 'Cash'
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load expense details');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchVendors = async () => {
         try {
@@ -68,6 +104,15 @@ const ExpenseForm = () => {
             setVendors(res.data.data);
         } catch (err) {
             console.error('Failed to load vendors');
+        }
+    };
+
+    const fetchCustomers = async () => {
+        try {
+            const res = await axios.get('/api/customers');
+            setCustomers(res.data.data);
+        } catch (err) {
+            console.error('Failed to load customers');
         }
     };
 
@@ -88,6 +133,16 @@ const ExpenseForm = () => {
         }
     };
 
+    const handleVendorCreated = (newVendor) => {
+        setVendors(prev => [...prev, newVendor]);
+        setFormData(prev => ({ ...prev, vendorId: newVendor._id }));
+    };
+
+    const handleCustomerCreated = (newCustomer) => {
+        setCustomers(prev => [...prev, newCustomer]);
+        setFormData(prev => ({ ...prev, customerId: newCustomer._id }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -100,13 +155,18 @@ const ExpenseForm = () => {
         }
 
         try {
-            await axios.post('/api/expenses', {
-                ...formData,
-                amount: Number(formData.amount)
-            });
+            const cleanedData = { ...formData, amount: Number(formData.amount) };
+            cleanedData.vendorId = cleanedData.vendorId || null;
+            cleanedData.customerId = cleanedData.customerId || null;
+
+            if (isEdit) {
+                await axios.put(`/api/expenses/${id}`, cleanedData);
+            } else {
+                await axios.post('/api/expenses', cleanedData);
+            }
             navigate('/expenses');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to record expense');
+            setError(err.response?.data?.message || 'Failed to save expense');
             setLoading(false);
         }
     };
@@ -123,7 +183,7 @@ const ExpenseForm = () => {
                     <div>
                         <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                             <Calculator className="text-blue-500" size={20} />
-                            Record New Expense
+                            {isEdit ? 'Edit Expense' : 'Record New Expense'}
                         </h1>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Business Expenditure Tracking</p>
                     </div>
@@ -135,7 +195,7 @@ const ExpenseForm = () => {
                     <button type="submit" onClick={handleSubmit} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2 shadow-lg shadow-blue-500/10">
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save Expense'}
+                        {loading ? 'Saving...' : isEdit ? 'Update Expense' : 'Save Expense'}
                     </button>
                 </div>
             </div>
@@ -199,19 +259,29 @@ const ExpenseForm = () => {
                     </h3>
 
                     <InputRow label="Vendor" helper="Associate this expense with a vendor record">
-                        <div className="relative max-w-md">
-                            <select
-                                name="vendorId"
-                                value={formData.vendorId}
-                                onChange={handleChange}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                            >
-                                <option value="">Select Vendor</option>
-                                {vendors.map(v => (
-                                    <option key={v._id} value={v._id}>{v.companyName}</option>
-                                ))}
-                            </select>
-                        </div>
+                        <SearchableDropdown
+                            options={vendors.map(v => v.companyName)}
+                            value={vendors.find(v => v._id === formData.vendorId)?.companyName || ''}
+                            onChange={(name) => {
+                                const vend = vendors.find(v => v.companyName === name);
+                                setFormData(prev => ({ ...prev, vendorId: vend ? vend._id : '' }));
+                            }}
+                            onAddNew={() => setShowVendorModal(true)}
+                            placeholder="Select Vendor"
+                        />
+                    </InputRow>
+
+                    <InputRow label="Customer" helper="Associate this expense with a customer record">
+                        <SearchableDropdown
+                            options={customers.map(c => c.companyName)}
+                            value={customers.find(c => c._id === formData.customerId)?.companyName || ''}
+                            onChange={(name) => {
+                                const cust = customers.find(c => c.companyName === name);
+                                setFormData(prev => ({ ...prev, customerId: cust ? cust._id : '' }));
+                            }}
+                            onAddNew={() => setShowCustomerModal(true)}
+                            placeholder="Select Customer"
+                        />
                     </InputRow>
 
                     <InputRow label="Payment Method">
@@ -267,11 +337,23 @@ const ExpenseForm = () => {
                             Cancel
                         </button>
                         <button type="submit" disabled={loading} className="btn-primary px-10 shadow-lg shadow-blue-500/10">
-                            {loading ? 'Saving...' : 'Save Expense'}
+                            {loading ? 'Saving...' : isEdit ? 'Update Expense' : 'Save Expense'}
                         </button>
                     </div>
                 </div>
             </form>
+
+            <QuickVendorModal 
+                isOpen={showVendorModal} 
+                onClose={() => setShowVendorModal(false)} 
+                onSuccess={handleVendorCreated} 
+            />
+
+            <QuickCustomerModal 
+                isOpen={showCustomerModal} 
+                onClose={() => setShowCustomerModal(false)} 
+                onSuccess={handleCustomerCreated} 
+            />
         </div>
     );
 };

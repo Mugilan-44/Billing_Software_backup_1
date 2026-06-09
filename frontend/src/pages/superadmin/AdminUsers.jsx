@@ -1,56 +1,76 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { Plus, Search, ToggleLeft, ToggleRight, Users, Building2, CheckCircle, BarChart3, UserPlus, Trash2, ShieldCheck } from 'lucide-react';
+import axios from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
+import {
+    Plus, Search, ToggleLeft, ToggleRight, Users, ShieldAlert,
+    Building2, CheckCircle, Edit3, Trash2, Key, Calendar, MapPin,
+    Lock, Unlock, RefreshCw, X, ShieldCheck
+} from 'lucide-react';
 
 const AdminUsers = () => {
-    // Shared State
+    const { user: currentUser } = useAuth();
+    // States
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ totalCompanies: 0, totalAdmins: 0, totalCustomers: 0, activeCompanies: 0 });
-
-    // Admins State
+    const [stats, setStats] = useState({ totalAdmins: 0, activeAdmins: 0, deactiveAdmins: 0 });
     const [admins, setAdmins] = useState([]);
-    const [superAdmins, setSuperAdmins] = useState([]);
-    const [showAdminForm, setShowAdminForm] = useState(false);
-    const [showSuperAdminForm, setShowSuperAdminForm] = useState(false);
-    const [adminForm, setAdminForm] = useState({ name: '', email: '', password: '', companyId: '', branchId: '' });
-    const [superAdminForm, setSuperAdminForm] = useState({ name: '', email: '', password: '' });
-    const [savingAdmin, setSavingAdmin] = useState(false);
-    const [savingSuperAdmin, setSavingSuperAdmin] = useState(false);
-    const [adminSearch, setAdminSearch] = useState('');
-    const [adminFormError, setAdminFormError] = useState('');
-    const [superAdminFormError, setSuperAdminFormError] = useState('');
-    const [branches, setBranches] = useState([]);
+    const [search, setSearch] = useState('');
 
-    // Permissions Modal state
+    // Create Admin Form Modal
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [form, setForm] = useState({
+        companyName: '',
+        ownerName: '', // Representative Name
+        phone: '',
+        email: '', // Business Email
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'India',
+        subscriptionMonths: 12,
+        loginEmail: '', // Account ID
+        password: ''
+    });
+
+    // Edit Admin Modal
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingAdmin, setEditingAdmin] = useState(null);
+    const [editForm, setEditForm] = useState({
+        companyName: '',
+        ownerName: '',
+        phone: '',
+        email: '',
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'India',
+        password: '', // blank unless changing
+        renewMonths: 0 // 0 means no renewal, 12 means renew 1 year
+    });
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editError, setEditError] = useState('');
+
+    // Permissions Modal state (kept for system capabilities)
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
     const [currentAdminForPermissions, setCurrentAdminForPermissions] = useState(null);
     const [tempPermissions, setTempPermissions] = useState({});
-
-    // Companies State
-    const [companies, setCompanies] = useState([]);
-    const [showCompanyForm, setShowCompanyForm] = useState(false);
-    const [companyForm, setCompanyForm] = useState({ name: '', email: '', phone: '', gstin: '' });
-    const [savingCompany, setSavingCompany] = useState(false);
-    const [companySearch, setCompanySearch] = useState('');
 
     const getToken = () => localStorage.getItem('token');
     const authHeader = () => ({ headers: { Authorization: `Bearer ${getToken()}` } });
 
     const fetchData = async () => {
         try {
-            const [statsRes, adminsRes, superAdminsRes, companiesRes] = await Promise.all([
+            const [statsRes, adminsRes] = await Promise.all([
                 axios.get('/api/super-admin/stats', authHeader()),
-                axios.get('/api/super-admin/admins', authHeader()),
-                axios.get('/api/super-admin/super-admins', authHeader()),
-                axios.get('/api/super-admin/companies', authHeader())
+                axios.get('/api/super-admin/admins', authHeader())
             ]);
             setStats(statsRes.data.data);
             setAdmins(adminsRes.data.data);
-            setSuperAdmins(superAdminsRes.data.data);
-            setCompanies(companiesRes.data.data);
         } catch (error) {
-            console.error('Error fetching combined super admin data:', error);
+            console.error('Error fetching Prolync Admin data:', error);
         } finally {
             setLoading(false);
         }
@@ -60,74 +80,119 @@ const AdminUsers = () => {
         fetchData();
     }, []);
 
-    // When company is selected, load branches for that company
-    const handleAdminCompanyChange = async (companyId) => {
-        setAdminForm(prev => ({ ...prev, companyId, branchId: '' }));
-        if (!companyId) { setBranches([]); return; }
+    // Create Admin + Company Handler
+    const handleCreateAdmin = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (!form.companyName.trim() || !form.ownerName.trim() || !form.loginEmail.trim() || !form.password.trim()) {
+            setError('Company Name, Representative Name, Account ID, and Password are required.');
+            return;
+        }
+        setSaving(true);
         try {
-            const res = await axios.get(`/api/branches?companyId=${companyId}`, authHeader());
-            setBranches(res.data.data || []);
+            await axios.post('/api/super-admin/admins/create-combined', form, authHeader());
+            await fetchData();
+            setForm({
+                companyName: '',
+                ownerName: '',
+                phone: '',
+                email: '',
+                street: '',
+                city: '',
+                state: '',
+                zipCode: '',
+                country: 'India',
+                subscriptionMonths: 12,
+                loginEmail: '',
+                password: ''
+            });
+            setShowCreateModal(false);
         } catch (e) {
-            console.warn('No branches fetched:', e.message);
-            setBranches([]);
+            setError(e.response?.data?.message || 'Failed to register company account');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleCreateAdmin = async (e) => {
+    // Edit / Update Admin Handler
+    const handleUpdateAdmin = async (e) => {
         e.preventDefault();
-        if (!adminForm.name.trim() || !adminForm.email.trim() || !adminForm.password.trim() || !adminForm.companyId || !adminForm.branchId) {
-            setAdminFormError('All fields including Branch are required.'); return;
-        }
-        setSavingAdmin(true); setAdminFormError('');
+        setEditError('');
+        setSavingEdit(true);
         try {
-            await axios.post('/api/super-admin/admins', adminForm, authHeader());
+            await axios.put(`/api/super-admin/admins/${editingAdmin._id}/update-combined`, editForm, authHeader());
             await fetchData();
-            setAdminForm({ name: '', email: '', password: '', companyId: '', branchId: '' });
-            setBranches([]);
-            setShowAdminForm(false);
+            setShowEditModal(false);
+            setEditingAdmin(null);
         } catch (e) {
-            setAdminFormError(e.response?.data?.message || 'Failed to create admin');
-        } finally { setSavingAdmin(false); }
+            setEditError(e.response?.data?.message || 'Failed to update company account');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const handleOpenEditModal = (admin) => {
+        setEditingAdmin(admin);
+        const company = admin.companyId || {};
+        const address = company.address || {};
+        setEditForm({
+            companyName: company.businessName || '',
+            ownerName: admin.name || '',
+            phone: company.phone || '',
+            email: company.email || '',
+            street: address.street || '',
+            city: address.city || '',
+            state: address.state || '',
+            zipCode: address.zipCode || '',
+            country: address.country || 'India',
+            password: '',
+            renewMonths: 0
+        });
+        setShowEditModal(true);
     };
 
     const toggleAdminActive = async (id) => {
         try {
             await axios.patch(`/api/super-admin/users/${id}/toggle`, {}, authHeader());
-            setAdmins(prev => prev.map(a => a._id === id ? { ...a, isActive: !a.isActive } : a));
-            setSuperAdmins(prev => prev.map(a => a._id === id ? { ...a, isActive: !a.isActive } : a));
-            fetchData(); // Sync everything
-        } catch (e) { console.error(e); }
-    };
-
-    const handleCreateSuperAdmin = async (e) => {
-        e.preventDefault();
-        if (!superAdminForm.name.trim() || !superAdminForm.email.trim() || !superAdminForm.password.trim()) {
-            setSuperAdminFormError('All fields are required.'); return;
-        }
-        setSavingSuperAdmin(true); setSuperAdminFormError('');
-        try {
-            await axios.post('/api/super-admin/super-admins', superAdminForm, authHeader());
-            await fetchData();
-            setSuperAdminForm({ name: '', email: '', password: '' });
-            setShowSuperAdminForm(false);
+            fetchData();
         } catch (e) {
-            setSuperAdminFormError(e.response?.data?.message || 'Failed to create super admin');
-        } finally { setSavingSuperAdmin(false); }
+            console.error('Error toggling status', e);
+        }
     };
 
+    const handleDeleteAdmin = async (id) => {
+        if (window.confirm('Are you sure you want to permanently delete this company account and all associated tenant data? This cannot be undone.')) {
+            try {
+                await axios.delete(`/api/super-admin/users/${id}`, authHeader());
+                fetchData();
+            } catch (e) {
+                console.error('Failed to delete user', e);
+                alert('Deletion failed');
+            }
+        }
+    };
+
+    // Permissions Modals
     const openPermissionsModal = (admin) => {
         setCurrentAdminForPermissions(admin);
-        setTempPermissions(admin.permissions || {
+        const defaults = {
             customers: true, vendors: true, items: true, quotations: true,
             salesOrders: true, invoices: true, challans: true, payments: true,
-            creditNotes: true, purchaseBills: true, expenses: true, stock: true, reports: true
+            creditNotes: true, purchaseBills: true, expenses: true, stock: true, reports: true,
+            overallTax: true, withTax: true, noTax: true
+        };
+        setTempPermissions({
+            ...defaults,
+            ...(admin.permissions || {})
         });
         setShowPermissionsModal(true);
     };
 
     const handleSavePermissions = async () => {
         try {
-            await axios.patch(`/api/super-admin/admins/${currentAdminForPermissions._id}/permissions`, { permissions: tempPermissions }, authHeader());
+            await axios.patch(`/api/super-admin/admins/${currentAdminForPermissions._id}/permissions`, { 
+                permissions: tempPermissions
+            }, authHeader());
             fetchData();
             setShowPermissionsModal(false);
         } catch (e) {
@@ -136,432 +201,444 @@ const AdminUsers = () => {
         }
     };
 
-    // --- Company Functions ---
-    const handleCreateCompany = async (e) => {
-        e.preventDefault();
-        if (!companyForm.name.trim()) return;
-        setSavingCompany(true);
-        try {
-            await axios.post('/api/super-admin/companies', companyForm, authHeader());
-            setCompanyForm({ name: '', email: '', phone: '', gstin: '' });
-            setShowCompanyForm(false);
-            await fetchData();
-        } catch (e) { console.error(e); }
-        finally { setSavingCompany(false); };
-    };
+    const filteredAdmins = (admins || []).filter(a =>
+        a && (
+            (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
+            (a.companyId?.businessName || '').toLowerCase().includes(search.toLowerCase())
+        )
+    );
 
-    const handleDeleteCompany = async (id) => {
-        if (!window.confirm('Delete this company and all its data?')) return;
-        await axios.delete(`/api/super-admin/companies/${id}`, authHeader());
-        await fetchData();
-    };
-
-    const toggleCompanyActive = async (id) => {
-        // Assuming there's a toggle endpoint or we just rely on delete/edit.
-        // We will just keep the delete for companies based on previous logic.
-    };
-
-    const filteredAdmins = admins.filter(a => a.name.toLowerCase().includes(adminSearch.toLowerCase()) || a.email.toLowerCase().includes(adminSearch.toLowerCase()));
-    const filteredCompanies = companies.filter(c => c.name.toLowerCase().includes(companySearch.toLowerCase()));
+    const sortedAdmins = [...filteredAdmins].sort((a, b) => {
+        if (!a || !b) return 0;
+        const dateA = a.subscription?.expiryDate && !isNaN(new Date(a.subscription.expiryDate).getTime()) ? new Date(a.subscription.expiryDate) : new Date(8640000000000000);
+        const dateB = b.subscription?.expiryDate && !isNaN(new Date(b.subscription.expiryDate).getTime()) ? new Date(b.subscription.expiryDate) : new Date(8640000000000000);
+        return dateA - dateB;
+    });
 
     const cards = [
-        { label: 'Total Companies', value: stats.totalCompanies, icon: <Building2 size={22} />, color: 'bg-purple-100 text-purple-700', border: 'border-purple-200' },
-        { label: 'Active Companies', value: stats.activeCompanies, icon: <CheckCircle size={22} />, color: 'bg-green-100 text-green-700', border: 'border-green-200' },
-        { label: 'Admin Users', value: stats.totalAdmins, icon: <Users size={22} />, color: 'bg-blue-100 text-blue-700', border: 'border-blue-200' },
-        { label: 'Customers', value: stats.totalCustomers, icon: <BarChart3 size={22} />, color: 'bg-amber-100 text-amber-700', border: 'border-amber-200' },
+        { label: 'Total Companies', value: stats?.totalAdmins ?? 0, icon: <Users size={20} />, color: 'bg-slate-50 border-slate-200/60 text-[#1d1d1f]' },
+        { label: 'Active Companies', value: stats?.activeAdmins ?? 0, icon: <CheckCircle size={20} />, color: 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' },
+        { label: 'Deactive Companies', value: stats?.deactiveAdmins ?? 0, icon: <ShieldAlert size={20} />, color: 'bg-[#ff3b30]/10 border-[#ff3b30]/20 text-[#ff3b30]' },
     ];
 
+    const getSubscriptionProgress = (sub) => {
+        if (!sub || !sub.startDate || !sub.expiryDate) {
+            return { text: 'No Subscription', dateStr: 'Ends: —', color: 'text-slate-400', pct: 0, daysLeft: 0, status: 'EXPIRED' };
+        }
+        const now = new Date();
+        const start = new Date(sub.startDate);
+        const expiry = new Date(sub.expiryDate);
+
+        if (isNaN(start.getTime()) || isNaN(expiry.getTime())) {
+            return { text: 'Invalid Dates', dateStr: 'Ends: —', color: 'text-slate-400', pct: 0, daysLeft: 0, status: 'EXPIRED' };
+        }
+        
+        const totalDuration = expiry - start;
+        const elapsed = now - start;
+        const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+        
+        let pct = 0;
+        if (totalDuration > 0) {
+            pct = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)));
+        }
+        
+        const dateStr = `Ends: ${expiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+
+        if (daysLeft <= 0) {
+            return { text: 'Expired', dateStr, color: 'text-[#ff3b30]', pct: 100, daysLeft: 0, status: 'EXPIRED' };
+        } else if (daysLeft <= 30) {
+            return { text: `${daysLeft} days left`, dateStr, color: 'text-[#ff9500]', pct, daysLeft, status: 'EXPIRING' };
+        } else {
+            return { text: `${daysLeft} days left`, dateStr, color: 'text-[#34c759]', pct, daysLeft, status: 'ACTIVE' };
+        }
+    };
+
     return (
-        <div className="space-y-8">
-            {/* Header & Main Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-10 font-sans bg-[#f5f5f7] text-[#1d1d1f] p-6 md:p-10 min-h-screen">
+            {/* Header & Primary Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-200 pb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Super Admin Control Panel</h1>
-                    <p className="text-slate-400 text-sm mt-0.5">Manage companies, admin users, and global system metrics.</p>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-[#1d1d1f] sm:text-5xl">Prolync Company Control</h1>
+                    <p className="text-[#86868b] text-base mt-2 font-medium">Unified license manager, client deployments, and subscription controls.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <button onClick={() => { setShowCompanyForm(!showCompanyForm); setShowAdminForm(false); setShowSuperAdminForm(false); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors">
+                    <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white text-sm font-bold transition-all shadow-md shadow-[#0071e3]/10 transform active:scale-95">
                         <Plus size={16} /> Add Company
-                    </button>
-                    <button onClick={() => { setShowAdminForm(!showAdminForm); setShowCompanyForm(false); setShowSuperAdminForm(false); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
-                        <Plus size={16} /> Add Admin
-                    </button>
-                    <button onClick={() => { setShowSuperAdminForm(!showSuperAdminForm); setShowAdminForm(false); setShowCompanyForm(false); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors shadow-lg shadow-indigo-500/20">
-                        <Plus size={16} /> Create Super Admin
                     </button>
                 </div>
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {cards.map(card => (
-                    <div key={card.label} className={`bg-slate-800 rounded-xl border ${card.border} p-5`}>
-                        <div className={`inline-flex p-2 rounded-lg ${card.color} mb-3`}>{card.icon}</div>
-                        <div className="text-2xl font-bold text-white">{loading ? '—' : card.value}</div>
-                        <div className="text-sm text-slate-400 mt-0.5">{card.label}</div>
+                    <div key={card.label} className={`bg-white hover:bg-white/80 transition-all duration-300 rounded-3xl border border-slate-100 p-8 flex items-center justify-between shadow-lg shadow-slate-100/40`}>
+                        <div>
+                            <div className="text-xs font-bold text-[#86868b] uppercase tracking-widest">{card.label}</div>
+                            <div className="text-4xl font-black text-[#1d1d1f] mt-3 tracking-tight">{loading ? '—' : card.value}</div>
+                        </div>
+                        <div className={`p-4 rounded-2xl ${card.color.split(' ')[0]} ${card.color.split(' ')[2]}`}>
+                            {card.icon}
+                        </div>
                     </div>
                 ))}
             </div>
 
-            {/* Hidden Forms */}
-            {/* 0. Super Admin Form */}
-            {showSuperAdminForm && (
-                <div className="bg-slate-800 rounded-xl border border-indigo-700/50 p-6 shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
-                    <h3 className="text-white font-semibold mb-4">Create New Super Admin</h3>
-                    {superAdminFormError && <p className="text-red-400 text-sm mb-3 bg-red-900/20 px-3 py-2 rounded-lg">{superAdminFormError}</p>}
-                    <form onSubmit={handleCreateSuperAdmin} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                            { field: 'name', label: 'Full Name *', placeholder: 'Root Admin', type: 'text' },
-                            { field: 'email', label: 'Email *', placeholder: 'super@company.com', type: 'email' },
-                            { field: 'password', label: 'Password *', placeholder: 'Min 6 chars', type: 'password' },
-                        ].map(f => (
-                            <div key={f.field}>
-                                <label className="block text-xs font-medium text-slate-400 mb-1">{f.label}</label>
-                                <input type={f.type} placeholder={f.placeholder} value={superAdminForm[f.field]}
-                                    onChange={e => setSuperAdminForm({ ...superAdminForm, [f.field]: e.target.value })}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
-                            </div>
-                        ))}
-                        <div className="col-span-1 md:col-span-3 flex gap-3 mt-2">
-                            <button type="submit" disabled={savingSuperAdmin} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                                {savingSuperAdmin ? 'Creating...' : 'Submit Super Admin'}
-                            </button>
-                            <button type="button" onClick={() => { setShowSuperAdminForm(false); setSuperAdminFormError(''); }} className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* 1. Admin Form */}
-            {showAdminForm && (
-                <div className="bg-slate-800 rounded-xl border border-blue-700/50 p-6 shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                    <h3 className="text-white font-semibold mb-4">Create Admin User</h3>
-                    {adminFormError && <p className="text-red-400 text-sm mb-3 bg-red-900/20 px-3 py-2 rounded-lg">{adminFormError}</p>}
-                    <form onSubmit={handleCreateAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                            { field: 'name', label: 'Full Name *', placeholder: 'John Smith', type: 'text' },
-                            { field: 'email', label: 'Email *', placeholder: 'admin@company.com', type: 'email' },
-                            { field: 'password', label: 'Password *', placeholder: 'Min 6 characters', type: 'password' },
-                        ].map(f => (
-                            <div key={f.field}>
-                                <label className="block text-xs font-medium text-slate-400 mb-1">{f.label}</label>
-                                <input type={f.type} placeholder={f.placeholder} value={adminForm[f.field]}
-                                    onChange={e => setAdminForm({ ...adminForm, [f.field]: e.target.value })}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500" />
-                            </div>
-                        ))}
-                        <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Company *</label>
-                            <select value={adminForm.companyId} onChange={e => handleAdminCompanyChange(e.target.value)}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
-                                <option value="">Select a company</option>
-                                {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Branch *</label>
-                            <select value={adminForm.branchId} onChange={e => setAdminForm({ ...adminForm, branchId: e.target.value })}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                                disabled={!adminForm.companyId}>
-                                <option value="">{adminForm.companyId ? 'Select a branch' : 'Select company first'}</option>
-                                {branches.map(b => <option key={b._id} value={b._id}>{b.branchName} ({b.branchCode})</option>)}
-                            </select>
-                        </div>
-                        <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
-                            <button type="submit" disabled={savingAdmin} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                                {savingAdmin ? 'Creating...' : 'Submit Admin'}
-                            </button>
-                            <button type="button" onClick={() => { setShowAdminForm(false); setAdminFormError(''); }} className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* 2. Company Form */}
-            {showCompanyForm && (
-                <div className="bg-slate-800 rounded-xl border border-purple-700/50 p-6 shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
-                    <h3 className="text-white font-semibold mb-4">Create New Company</h3>
-                    <form onSubmit={handleCreateCompany} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                            { field: 'name', label: 'Company Name *', placeholder: 'Acme Pvt. Ltd.' },
-                            { field: 'email', label: 'Email', placeholder: 'info@acme.com' },
-                            { field: 'phone', label: 'Phone', placeholder: '+91 9000000000' },
-                            { field: 'gstin', label: 'GSTIN', placeholder: '22AAAAA0000A1Z5' },
-                        ].map(f => (
-                            <div key={f.field}>
-                                <label className="block text-xs font-medium text-slate-400 mb-1">{f.label}</label>
-                                <input type="text" placeholder={f.placeholder} value={companyForm[f.field]}
-                                    onChange={e => setCompanyForm({ ...companyForm, [f.field]: e.target.value })}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500" />
-                            </div>
-                        ))}
-                        <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
-                            <button type="submit" disabled={savingCompany} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                                {savingCompany ? 'Creating...' : 'Submit Company'}
-                            </button>
-                            <button type="button" onClick={() => setShowCompanyForm(false)} className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            <div className="space-y-6">
-                {/* Super Admins List */}
-                <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-h-[300px]">
-                    <div className="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 shrink-0">
-                        <h2 className="text-white font-semibold flex items-center gap-2">
-                            <ShieldCheck size={18} className="text-indigo-400" />
-                            SUPER ADMINS <span className="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded-full ml-1">{superAdmins.length}</span>
+            {/* Main unified table: Prolync Admin Control */}
+            <div className="bg-white border border-slate-200/60 rounded-3xl overflow-hidden flex flex-col shadow-xl shadow-slate-150/40">
+                <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#f9f9fb]">
+                    <div>
+                        <h2 className="text-xl font-bold text-[#1d1d1f] tracking-tight flex items-center gap-2">
+                            <Building2 size={20} className="text-[#0071e3]" />
+                            Prolync Company Control <span className="bg-[#f5f5f7] text-slate-600 text-xs px-3 py-1 rounded-full font-bold ml-1">{admins.length}</span>
                         </h2>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-slate-700 text-xs font-semibold text-slate-400 uppercase">
-                                    <th className="px-6 py-4 text-left">Admin Details</th>
-                                    <th className="px-6 py-4 text-left">Email</th>
-                                    <th className="px-6 py-4 text-left">Status</th>
-                                    <th className="px-6 py-4 text-left">Created At</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                                {loading && superAdmins.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500 text-sm">Loading...</td></tr>
-                                ) : superAdmins.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500 text-sm">No super admin users found.</td></tr>
-                                ) : superAdmins.map(a => (
-                                    <tr key={a._id} className="hover:bg-slate-700/30 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 shrink-0 rounded-full bg-indigo-700 flex items-center justify-center text-white text-xs font-bold leading-none">{a.name?.[0]?.toUpperCase()}</div>
+                    <div className="relative max-w-[280px] w-full">
+                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="text" placeholder="Search by name, email, company..." value={search} onChange={e => setSearch(e.target.value)}
+                            className="w-full bg-[#f5f5f7] border border-slate-200 rounded-full pl-10 pr-4 py-2.5 text-[#1d1d1f] text-sm placeholder-slate-450 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#86868b] bg-[#f9f9fb]">
+                                <th className="px-6 py-4">Client / Representative</th>
+                                <th className="px-6 py-4">Business Details</th>
+                                <th className="px-6 py-4">Subscription Progress</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm text-[#424245]">
+                            {loading ? (
+                                <tr><td colSpan={5} className="px-6 py-16 text-center text-[#86868b] font-medium">Loading control dashboard...</td></tr>
+                            ) : sortedAdmins.length === 0 ? (
+                                <tr><td colSpan={5} className="px-6 py-16 text-center text-[#86868b] font-medium">No company accounts found matching your search.</td></tr>
+                            ) : sortedAdmins.map(a => {
+                                const subInfo = getSubscriptionProgress(a.subscription);
+                                return (
+                                    <tr key={a._id} className="hover:bg-slate-50/50 transition-all duration-150">
+                                        {/* Representative details */}
+                                        <td className="px-6 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-slate-50 text-[#1d1d1f] border border-slate-200 flex items-center justify-center font-black text-sm">
+                                                    {a.name?.[0]?.toUpperCase() || 'A'}
+                                                </div>
                                                 <div>
-                                                    <div className="text-white text-sm font-semibold">{a.name}</div>
-                                                    <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold mt-0.5">ADMINID: #{a._id.slice(-4)}</div>
+                                                    <div className="font-bold text-[#1d1d1f] text-sm leading-snug">{a.name}</div>
+                                                    <div className="text-[#86868b] text-xs font-semibold mt-0.5">{a.email}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-300 text-sm">{a.email}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${a.isActive ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                                {a.isActive ? 'ACTIVE' : 'INACTIVE'}
-                                            </span>
+                                        
+                                        {/* Business / Company Details */}
+                                        <td className="px-6 py-6">
+                                            <div className="font-bold text-[#1d1d1f]">{a.companyId?.businessName || 'N/A'}</div>
+                                            <div className="text-[#86868b] text-xs mt-1 font-semibold">{a.companyId?.phone || '—'}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-400 text-sm">{new Date(a.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button onClick={() => toggleAdminActive(a._id)} className="p-2 text-slate-500 hover:text-white transition-opacity group-hover:opacity-100 opacity-60">
-                                                {a.isActive ? <ToggleRight size={24} className="text-green-500" /> : <ToggleLeft size={24} />}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
-                {/* Admins List */}
-                <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-h-[400px]">
-                    <div className="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 shrink-0">
-                        <h2 className="text-white font-semibold flex items-center gap-2">
-                            <Users size={18} className="text-blue-400" />
-                            ADMINS <span className="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded-full ml-1">{admins.length}</span>
-                        </h2>
-                        <div className="relative max-w-[240px] w-full">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                            <input type="text" placeholder="Search admins..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500" />
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-slate-700 text-xs font-semibold text-slate-400 uppercase">
-                                    <th className="px-6 py-4 text-left">Admin Details</th>
-                                    <th className="px-6 py-4 text-left">Email</th>
-                                    <th className="px-6 py-4 text-left">Branch / Firm</th>
-                                    <th className="px-6 py-4 text-left">Status</th>
-                                    <th className="px-6 py-4 text-left">Created At</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                                {loading && admins.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-500 text-sm">Loading...</td></tr>
-                                ) : filteredAdmins.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-500 text-sm">No admin users found.</td></tr>
-                                ) : filteredAdmins.map(a => (
-                                    <tr key={a._id} className="hover:bg-slate-700/30 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 shrink-0 rounded-full bg-blue-700 flex items-center justify-center text-white text-xs font-bold leading-none">{a.name?.[0]?.toUpperCase()}</div>
-                                                <div>
-                                                    <div className="text-white text-sm font-semibold">{a.name}</div>
-                                                    <div className="text-slate-500 text-[10px] tracking-wider uppercase font-bold mt-0.5">ADMINID: #{a._id.slice(-4)}</div>
+                                        {/* Subscription progress */}
+                                        <td className="px-6 py-6">
+                                            <div className="flex items-center justify-between text-xs mb-2 gap-4">
+                                                <span className={`font-bold ${subInfo.color}`}>{subInfo.text}</span>
+                                                <div className="text-right text-[10px] text-slate-400 font-medium">
+                                                    <div>Subscribed: <span className="text-slate-700 font-bold">{a.subscription?.startDate && !isNaN(new Date(a.subscription.startDate).getTime()) ? new Date(a.subscription.startDate).toLocaleDateString('en-GB') : '—'}</span></div>
+                                                    <div>Ends: <span className="text-slate-700 font-bold">{a.subscription?.expiryDate && !isNaN(new Date(a.subscription.expiryDate).getTime()) ? new Date(a.subscription.expiryDate).toLocaleDateString('en-GB') : '—'}</span></div>
                                                 </div>
                                             </div>
+                                            <div className="w-40 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full ${subInfo.status === 'EXPIRED' ? 'bg-[#ff3b30]' : subInfo.status === 'EXPIRING' ? 'bg-[#ff9500]' : 'bg-[#34c759]'}`} style={{ width: `${subInfo.pct}%` }} />
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-300 text-sm">{a.email}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-slate-200 text-xs font-medium">{a.companyId?.name || '—'}</div>
-                                            <div className="text-slate-500 text-[10px] mt-0.5">{a.branchId?.branchName || 'No Branch'}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${a.isActive ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                                {a.isActive ? 'ACTIVE' : 'BLOCKED'}
+
+                                        {/* Account Active State */}
+                                        <td className="px-6 py-6">
+                                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${a.isActive && subInfo.status !== 'EXPIRED' ? 'bg-[#34c759]/5 text-[#34c759] border-[#34c759]/20' : 'bg-[#ff3b30]/5 text-[#ff3b30] border-[#ff3b30]/20'}`}>
+                                                {a.isActive && subInfo.status !== 'EXPIRED' ? 'ACTIVE' : 'LOCKED'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-400 text-sm">{new Date(a.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => openPermissionsModal(a)} className="p-2 text-blue-400 hover:bg-blue-900/40 rounded-lg transition-colors" title="Module Permissions">
-                                                    <ShieldCheck size={20} />
+
+                                        {/* Actions list */}
+                                        <td className="px-6 py-6 text-right">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <button onClick={() => openPermissionsModal(a)} className="p-2 text-slate-400 hover:text-[#1d1d1f] hover:bg-slate-100 rounded-full transition-all" title="Module Access">
+                                                    <ShieldCheck size={18} />
                                                 </button>
-                                                <button onClick={() => toggleAdminActive(a._id)} className="p-2 text-slate-500 hover:text-white transition-opacity group-hover:opacity-100 opacity-60">
-                                                    {a.isActive ? <ToggleRight size={24} className="text-green-500" /> : <ToggleLeft size={24} />}
+                                                <button onClick={() => handleOpenEditModal(a)} className="p-2 text-slate-400 hover:text-[#1d1d1f] hover:bg-slate-100 rounded-full transition-all" title="Edit / Renew">
+                                                    <Edit3 size={18} />
+                                                </button>
+                                                <button onClick={() => toggleAdminActive(a._id)} className="p-2 text-slate-400 hover:text-[#1d1d1f] rounded-full transition-all" title={a.isActive ? 'Lock Account' : 'Unlock Account'}>
+                                                    {a.isActive ? <ToggleRight size={22} className="text-[#34c759]" /> : <ToggleLeft size={22} className="text-slate-400" />}
+                                                </button>
+                                                <button onClick={() => handleDeleteAdmin(a._id)} className="p-2 text-slate-450 hover:text-[#ff3b30] hover:bg-[#ff3b30]/5 rounded-full transition-all" title="Delete Account">
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Companies/Branches List */}
-                <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col h-[400px]">
-                    <div className="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 shrink-0">
-                        <h2 className="text-white font-semibold flex items-center gap-2">
-                            <Building2 size={18} className="text-purple-400" />
-                            Registered Branches <span className="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded-full ml-1">{companies.length}</span>
-                        </h2>
-                        <div className="relative max-w-[200px] w-full">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                            <input type="text" placeholder="Search branches..." value={companySearch} onChange={e => setCompanySearch(e.target.value)}
-                                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500" />
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <table className="w-full">
-                            <thead className="sticky top-0 bg-slate-800 shadow-sm z-10">
-                                <tr className="border-b border-slate-700">
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Branch Details</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Information</th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                                {loading && companies.length === 0 ? (
-                                    <tr><td colSpan={3} className="px-4 py-10 text-center text-slate-500 text-sm">Loading...</td></tr>
-                                ) : filteredCompanies.length === 0 ? (
-                                    <tr><td colSpan={3} className="px-4 py-10 text-center text-slate-500 text-sm">No branches found.</td></tr>
-                                ) : filteredCompanies.map(c => (
-                                    <tr key={c._id} className="hover:bg-slate-700/30 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-purple-700 shrink-0 flex items-center justify-center text-white text-xs font-bold leading-none">{c.name?.[0]?.toUpperCase()}</div>
-                                                <div className="text-white text-sm font-medium line-clamp-1">{c.name}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="text-slate-300 text-xs truncate max-w-[150px]">{c.email || '—'}</div>
-                                            <div className="text-slate-500 text-[11px] font-mono mt-0.5">{c.gstin || '—'}</div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <button onClick={() => handleDeleteCompany(c._id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
-                                                <Trash2 size={15} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
-            {/* Module Permissions Modal */}
-            {showPermissionsModal && currentAdminForPermissions && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[440px] overflow-hidden flex flex-col max-h-[90vh]">
-                        {/* Modal Header */}
-                        <div className="px-6 py-5 bg-white border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
+            {/* CREATE ADMIN MODAL */}
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div>
-                                <h3 className="text-[17px] font-black tracking-tight text-slate-900 uppercase">Module Permissions</h3>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">{currentAdminForPermissions.name}</p>
+                                <h3 className="text-xl font-bold tracking-tight text-[#1d1d1f]">Create New Company Account</h3>
+                                <p className="text-[#86868b] text-xs mt-1 font-semibold">Register a fresh client company and generate their admin credentials.</p>
                             </div>
-                            <button onClick={() => setShowPermissionsModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
-                                <Plus size={20} className="rotate-45" />
+                            <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-[#1d1d1f] p-2 rounded-full hover:bg-slate-100 transition-all">
+                                <X size={20} />
                             </button>
                         </div>
 
-                        {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto custom-scrollbar space-y-3">
-                            {[
-                                { key: 'customers', label: 'Customers', slug: 'customers' },
-                                { key: 'vendors', label: 'Vendors', slug: 'vendors' },
-                                { key: 'items', label: 'Items', slug: 'items' },
-                                { key: 'quotations', label: 'Quotations', slug: 'quotations' },
-                                { key: 'salesOrders', label: 'Sales Orders', slug: 'salesOrders' },
-                                { key: 'invoices', label: 'Invoices', slug: 'invoices' },
-                                { key: 'challans', label: 'Delivery Challans', slug: 'challans' },
-                                { key: 'payments', label: 'Payments', slug: 'payments' },
-                                { key: 'creditNotes', label: 'Credit Notes', slug: 'credit-notes' },
-                                { key: 'purchaseBills', label: 'Purchase Bills', slug: 'purchase-bills' },
-                                { key: 'expenses', label: 'Expenses', slug: 'expenses' },
-                                { key: 'stock', label: 'Stock Management', slug: 'stock' },
-                                { key: 'reports', label: 'Reports & Analytics', slug: 'reports' },
-                            ].map(mod => (
-                                <div key={mod.key}
-                                    className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group"
-                                    onClick={() => setTempPermissions({ ...tempPermissions, [mod.key]: !tempPermissions[mod.key] })}
-                                >
+                        {/* Body */}
+                        <form onSubmit={handleCreateAdmin} className="p-6 overflow-y-auto space-y-6 custom-scrollbar text-[#1d1d1f]">
+                            {error && <p className="text-[#ff3b30] text-sm bg-[#ff3b30]/5 border border-[#ff3b30]/10 px-4 py-3 rounded-2xl font-semibold">{error}</p>}
+
+                            {/* Section: Company Info */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-[#0071e3] border-b border-slate-100 pb-2">Company Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                        <div className="text-[13px] font-bold text-slate-800 uppercase tracking-tight">{mod.label}</div>
-                                        <div className="text-[10px] text-slate-400 font-semibold tracking-wide">Slug: {mod.slug}</div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Company Name *</label>
+                                        <input type="text" placeholder="Acme Corporation" value={form.companyName}
+                                            onChange={e => setForm({ ...form, companyName: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" required />
                                     </div>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${tempPermissions[mod.key] ? 'bg-blue-600 border-blue-600' : 'border-slate-200 bg-white'}`}>
-                                        {tempPermissions[mod.key] && <div className="w-2 h-2 rounded-full bg-white scale-in duration-200" />}
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Representative Name *</label>
+                                        <input type="text" placeholder="John Doe (Owner)" value={form.ownerName}
+                                            onChange={e => setForm({ ...form, ownerName: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Phone Number</label>
+                                        <input type="text" placeholder="+91 9876543210" value={form.phone}
+                                            onChange={e => setForm({ ...form, phone: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Business Email</label>
+                                        <input type="email" placeholder="contact@acme.com" value={form.email}
+                                            onChange={e => setForm({ ...form, email: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
                                     </div>
                                 </div>
-                            ))}
-                        </div>
+                                
+                                {/* Address Box */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div className="md:col-span-3">
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Street Address</label>
+                                        <input type="text" placeholder="123 Technology Park" value={form.street}
+                                            onChange={e => setForm({ ...form, street: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">City</label>
+                                        <input type="text" placeholder="Chennai" value={form.city}
+                                            onChange={e => setForm({ ...form, city: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">State</label>
+                                        <input type="text" placeholder="Tamil Nadu" value={form.state}
+                                            onChange={e => setForm({ ...form, state: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Subscription Duration</label>
+                                        <select value={form.subscriptionMonths} onChange={e => setForm({ ...form, subscriptionMonths: Number(e.target.value) })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all">
+                                            <option value={1}>1 Month Trial</option>
+                                            <option value={3}>3 Months</option>
+                                            <option value={6}>6 Months</option>
+                                            <option value={12}>1 Year (12 Months)</option>
+                                            <option value={24}>2 Years (24 Months)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
 
-                        {/* Modal Footer */}
-                        <div className="p-6 bg-slate-50/50 border-t border-slate-100 sticky bottom-0 z-10">
-                            <div className="flex gap-3 mb-4">
-                                <button
-                                    onClick={() => {
-                                        const allOn = {};
-                                        Object.keys(tempPermissions).forEach(k => allOn[k] = true);
-                                        setTempPermissions(allOn);
-                                    }}
-                                    className="flex-1 py-2 rounded-xl border border-slate-200 bg-white text-xs font-black tracking-tight text-slate-600 hover:bg-slate-50 transition-colors uppercase"
-                                >
-                                    Select All
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const allOff = {};
-                                        Object.keys(tempPermissions).forEach(k => allOff[k] = false);
-                                        setTempPermissions(allOff);
-                                    }}
-                                    className="flex-1 py-2 rounded-xl border border-slate-200 bg-white text-xs font-black tracking-tight text-slate-600 hover:bg-slate-50 transition-colors uppercase"
-                                >
-                                    Clear All
+                            {/* Box: Add Account */}
+                            <div className="bg-[#f5f5f7]/60 p-6 rounded-3xl border border-slate-200/80 space-y-4">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-[#34c759] flex items-center gap-1.5">
+                                    <Key size={14} /> Add Account Credentials
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Account ID (Login Email) *</label>
+                                        <input type="email" placeholder="admin@acme.com" value={form.loginEmail}
+                                            onChange={e => setForm({ ...form, loginEmail: e.target.value })}
+                                            className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#34c759] focus:ring-1 focus:ring-[#34c759] transition-all" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Password *</label>
+                                        <input type="password" placeholder="••••••••" value={form.password}
+                                            onChange={e => setForm({ ...form, password: e.target.value })}
+                                            className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#34c759] focus:ring-1 focus:ring-[#34c759] transition-all" required />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer Buttons */}
+                            <div className="flex justify-end items-center gap-3 pt-6 border-t border-slate-100">
+                                <button type="button" onClick={() => setShowCreateModal(false)} className="px-6 py-3 bg-[#f5f5f7] hover:bg-slate-200/60 text-[#1d1d1f] rounded-full text-sm font-bold transition-all">Cancel</button>
+                                <button type="submit" disabled={saving} className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-sm font-bold transition-all shadow-md shadow-[#0071e3]/10">
+                                    {saving ? 'Creating...' : 'Create Account'}
                                 </button>
                             </div>
-                            <button
-                                onClick={handleSavePermissions}
-                                className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Building2 size={18} />
-                                SAVE PERMISSIONS
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT ADMIN / COMPANY & RENEW SUBSCRIPTION MODAL */}
+            {showEditModal && editingAdmin && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Edit Company Details</h3>
+                                <p className="text-[#86868b] text-xs mt-1 font-semibold">Modify information, reset password, or renew subscription period.</p>
+                            </div>
+                            <button onClick={() => { setShowEditModal(false); setEditingAdmin(null); }} className="text-slate-400 hover:text-[#1d1d1f] p-2 rounded-full hover:bg-slate-100 transition-all">
+                                <X size={20} />
                             </button>
+                        </div>
+
+                        {/* Body */}
+                        <form onSubmit={handleUpdateAdmin} className="p-6 overflow-y-auto space-y-6 custom-scrollbar text-[#1d1d1f]">
+                            {editError && <p className="text-[#ff3b30] text-sm bg-[#ff3b30]/5 border border-[#ff3b30]/10 px-4 py-3 rounded-2xl font-semibold">{editError}</p>}
+
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-[#0071e3] border-b border-slate-100 pb-2">Edit Client Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Company Name</label>
+                                        <input type="text" value={editForm.companyName}
+                                            onChange={e => setEditForm({ ...editForm, companyName: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Representative Name</label>
+                                        <input type="text" value={editForm.ownerName}
+                                            onChange={e => setEditForm({ ...editForm, ownerName: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Phone Number</label>
+                                        <input type="text" value={editForm.phone}
+                                            onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Business Email</label>
+                                        <input type="email" value={editForm.email}
+                                            onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">Street Address</label>
+                                        <input type="text" value={editForm.street}
+                                            onChange={e => setEditForm({ ...editForm, street: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#86868b] uppercase tracking-wider mb-2">City</label>
+                                        <input type="text" value={editForm.city}
+                                            onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                                            className="w-full bg-[#f5f5f7] border border-slate-200/60 rounded-2xl px-4 py-3 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Renew Subscription Section */}
+                            <div className="bg-[#f5f5f7]/60 p-5 rounded-3xl border border-slate-200/85 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <Calendar className="text-[#ff9500] shrink-0" size={24} />
+                                    <div>
+                                        <div className="font-bold text-[#1d1d1f] text-sm">Renew / Extend Subscription</div>
+                                        <div className="text-[#86868b] text-xs mt-1 font-semibold">Extend the business license ending timeline.</div>
+                                    </div>
+                                </div>
+                                <select value={editForm.renewMonths} onChange={e => setEditForm({ ...editForm, renewMonths: Number(e.target.value) })}
+                                    className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm focus:outline-none focus:border-[#0071e3] min-w-[160px]">
+                                    <option value={0}>Do not extend</option>
+                                    <option value={1}>Extend 1 Month</option>
+                                    <option value={3}>Extend 3 Months</option>
+                                    <option value={6}>Extend 6 Months</option>
+                                    <option value={12}>Extend 1 Year (12M)</option>
+                                    <option value={24}>Extend 2 Years (24M)</option>
+                                </select>
+                            </div>
+
+                            {/* Reset Password Box */}
+                            <div className="bg-[#f5f5f7]/60 p-5 rounded-3xl border border-slate-200/85 space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <Key className="text-[#ff3b30] shrink-0" size={24} />
+                                    <div>
+                                        <div className="font-bold text-[#1d1d1f] text-sm">Change Log Password</div>
+                                        <div className="text-[#86868b] text-xs mt-1 font-semibold">Input a new password to update account credentials.</div>
+                                    </div>
+                                </div>
+                                <input type="password" placeholder="Enter new password (leave blank to keep current)" value={editForm.password}
+                                    onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[#1d1d1f] text-sm placeholder-slate-400 focus:outline-none focus:border-[#ff3b30]" />
+                            </div>
+
+                            {/* Footer Buttons */}
+                            <div className="flex justify-end items-center gap-3 pt-6 border-t border-slate-100">
+                                <button type="button" onClick={() => { setShowEditModal(false); setEditingAdmin(null); }} className="px-6 py-3 bg-[#f5f5f7] hover:bg-slate-200/60 text-[#1d1d1f] rounded-full text-sm font-bold transition-all">Cancel</button>
+                                <button type="submit" disabled={savingEdit} className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-sm font-bold transition-all shadow-lg">
+                                    {savingEdit ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODULE PERMISSIONS MODAL */}
+            {showPermissionsModal && currentAdminForPermissions && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-[440px] overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h3 className="text-base font-bold text-[#1d1d1f] uppercase tracking-wider">Module Permissions</h3>
+                                <p className="text-[#86868b] text-xs mt-1 font-semibold">{currentAdminForPermissions.name}</p>
+                            </div>
+                            <button onClick={() => setShowPermissionsModal(false)} className="text-slate-400 hover:text-[#1d1d1f] p-2 rounded-full hover:bg-slate-100 transition-all">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4 custom-scrollbar text-[#1d1d1f]">
+                            <div className="grid grid-cols-1 gap-3">
+                                {Object.keys(tempPermissions).map(key => (
+                                    <label key={key} className="flex items-center justify-between bg-[#f5f5f7]/60 p-4 rounded-2xl border border-slate-200/60 cursor-pointer hover:bg-slate-100 transition-all">
+                                        <span className="text-xs font-bold text-slate-700 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                                        <input type="checkbox" checked={tempPermissions[key]}
+                                            onChange={e => setTempPermissions({ ...tempPermissions, [key]: e.target.checked })}
+                                            className="w-4.5 h-4.5 rounded bg-white text-[#0071e3] border-slate-300 focus:ring-0 cursor-pointer" />
+                                    </label>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button type="button" onClick={() => setShowPermissionsModal(false)} className="px-5 py-2.5 bg-[#f5f5f7] hover:bg-slate-200/60 text-[#1d1d1f] rounded-full text-sm font-bold">Cancel</button>
+                                <button type="button" onClick={handleSavePermissions} className="px-6 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-sm font-bold shadow-lg">Save Permissions</button>
+                            </div>
                         </div>
                     </div>
                 </div>

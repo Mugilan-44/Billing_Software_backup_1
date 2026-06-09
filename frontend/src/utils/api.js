@@ -1,16 +1,21 @@
 import axios from 'axios';
 
+export const API_URL = import.meta.env.VITE_API_URL || '';
+
+// Configure global axios instance so direct axios imports also use this base URL
+axios.defaults.baseURL = API_URL;
+
+console.log('=== Billing System Startup Diagnostics ===');
+console.log('Current Mode:', import.meta.env.MODE);
+console.log('Current API Base URL:', API_URL || '(relative / local proxy)');
+console.log('Is Production:', import.meta.env.PROD);
+console.log('==========================================');
+
 /**
  * Pre-configured axios instance for all API requests.
- * Uses Vite proxy so that all `/api/*` requests are forwarded
- * to the backend (no hardcoded host/port needed).
- *
- * Token is attached globally via AuthContext via:
- *   axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
- * so every instance (including this one) automatically carries the token.
  */
 const api = axios.create({
-    baseURL: '/',
+    baseURL: API_URL,
     timeout: 15000,
     headers: {
         'Content-Type': 'application/json',

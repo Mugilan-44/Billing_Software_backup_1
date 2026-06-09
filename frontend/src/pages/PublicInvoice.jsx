@@ -1,7 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import { Download, FileText, CheckCircle } from 'lucide-react';
+import { getImageUrl, getViewerTaxBreakdown } from './InvoiceViewer';
+
+const formatCustomerAddress = (addr, flatFallback) => {
+    if (!addr) return flatFallback || '';
+    if (typeof addr === 'string') return addr;
+    const hasValues = Object.values(addr).some(val => val !== undefined && val !== null && String(val).trim() !== '');
+    if (!hasValues) return flatFallback || '';
+    const streetParts = [addr.street1, addr.street2, addr.street].filter(Boolean).map(s => String(s).trim()).join(', ');
+    return [
+        streetParts,
+        addr.city,
+        addr.state,
+        addr.zipCode || addr.pincode || addr.zip
+    ].filter(v => v && String(v).trim() !== '').join(', ');
+};
 
 const PublicInvoice = () => {
     const { id } = useParams();
@@ -23,15 +38,8 @@ const PublicInvoice = () => {
         fetchInvoice();
     }, [id]);
 
-    const handleDownloadPDF = async () => {
-        try {
-            // Need a public download route for PDF too! For simplicity here, we assume standard /api/invoices/:id/download is protected.
-            // But we created /api/public/invoices/:id so we can just use window.print() or add a public PDF generator.
-            // For now, let's trigger print.
-            window.print();
-        } catch (error) {
-            console.error('Error printing PDF', error);
-        }
+    const handleDownloadPDF = () => {
+        window.location.href = `/api/public/invoices/${id}/download`;
     };
 
     if (loading) return <div className="h-screen w-full flex items-center justify-center bg-gray-50 text-gray-500">Loading Invoice...</div>;
@@ -67,7 +75,7 @@ const PublicInvoice = () => {
                     <div className="flex justify-between items-start border-b border-gray-100 pb-8 mb-8">
                         <div>
                             {settings?.logoUrl ? (
-                                <img src={`${settings.logoUrl}`} alt="Company Logo" className="h-16 object-contain mb-4" />
+                                <img src={getImageUrl(settings.logoUrl)} alt="Company Logo" className="h-16 object-contain mb-4" />
                             ) : (
                                 <h1 className="text-2xl font-black text-gray-900 mb-2">{settings?.companyName || 'Transport Company'}</h1>
                             )}
@@ -87,10 +95,14 @@ const PublicInvoice = () => {
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Billed To</p>
                             <h3 className="text-lg font-bold text-gray-900 mb-1">{customer?.companyName}</h3>
-                            {customer?.billingAddress && (
-                                <p className="text-gray-600 text-sm mb-1">
-                                    {customer.billingAddress.street}, {customer.billingAddress.city}, {customer.billingAddress.state}
-                                </p>
+                            {invoice.billingAddress ? (
+                                <p className="text-gray-600 text-sm mb-1 whitespace-pre-wrap">{invoice.billingAddress}</p>
+                            ) : (
+                                formatCustomerAddress(customer?.billingAddress, customer?.address) && (
+                                    <p className="text-gray-600 text-sm mb-1">
+                                        {formatCustomerAddress(customer?.billingAddress, customer?.address)}
+                                    </p>
+                                )
                             )}
                             <p className="text-gray-600 text-sm">GSTIN: <span className="font-medium">{customer?.gstNumber || 'URD'}</span></p>
                         </div>
@@ -121,8 +133,8 @@ const PublicInvoice = () => {
                             {invoice.items.map((item, idx) => (
                                 <tr key={idx} className="border-b border-gray-100">
                                     <td className="py-4 font-medium text-gray-800 w-2/5">
-                                        {item.name}
-                                        {item.itemId?.hsnCode && <p className="text-xs text-gray-400 mt-1 font-normal">HSN: {item.itemId.hsnCode}</p>}
+                                        {item.name || (item.itemId ? item.itemId.name : 'Item')}
+                                        {(item.hsnCode || item.itemId?.hsnCode) && <p className="text-xs text-gray-400 mt-1 font-normal">HSN: {item.hsnCode || item.itemId.hsnCode}</p>}
                                     </td>
                                     <td className="py-4 text-center text-gray-600">{item.quantity}</td>
                                     <td className="py-4 text-right text-gray-600">{settings?.currency?.symbol || '₹'}{item.rate.toFixed(2)}</td>
@@ -156,18 +168,18 @@ const PublicInvoice = () => {
                                 <span>Sub Total</span>
                                 <span className="font-medium text-gray-900">{settings?.currency?.symbol || '₹'}{invoice.subTotal.toFixed(2)}</span>
                             </div>
-                            {invoice.discount > 0 && (
+                            {(invoice.discount > 0 || invoice.discountAmount > 0) && (
                                 <div className="flex justify-between text-red-500">
                                     <span>Discount (-)</span>
-                                    <span className="font-medium">-{settings?.currency?.symbol || '₹'}{invoice.discount.toFixed(2)}</span>
+                                    <span className="font-medium">-{settings?.currency?.symbol || '₹'}{(invoice.discount || invoice.discountAmount).toFixed(2)}</span>
                                 </div>
                             )}
-                            {invoice.taxTotal?.totalTax > 0 && (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Total Value Added Tax (GST)</span>
-                                    <span className="font-medium text-gray-900">{settings?.currency?.symbol || '₹'}{invoice.taxTotal.totalTax.toFixed(2)}</span>
+                            {getViewerTaxBreakdown(invoice).map((row, idx) => (
+                                <div key={idx} className="flex justify-between text-gray-600">
+                                    <span>{row.label}</span>
+                                    <span className="font-medium text-gray-900">{settings?.currency?.symbol || '₹'}{row.amount.toFixed(2)}</span>
                                 </div>
-                            )}
+                            ))}
                             {invoice.roundOff !== 0 && (
                                 <div className="flex justify-between text-gray-600">
                                     <span>Round Off</span>

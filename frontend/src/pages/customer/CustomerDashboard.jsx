@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import axios from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import { FileText, CreditCard, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -78,7 +78,7 @@ const CustomerDashboard = () => {
                                     <div className="text-slate-500 text-xs">{new Date(inv.invoiceDate || inv.createdAt).toLocaleDateString('en-IN')}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-white text-sm font-semibold">₹{inv.totalAmount?.toFixed(2)}</span>
+                                    <span className="text-white text-sm font-semibold">₹{(inv.totalAmount || inv.grandTotal || 0).toFixed(2)}</span>
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(inv.status)}`}>{inv.status}</span>
                                 </div>
                             </div>

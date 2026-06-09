@@ -1,4 +1,5 @@
 import Item from '../models/Item.js';
+import { findDocument } from '../utils/tenant.utils.js';
 
 // @desc    Get all items
 // @route   GET /api/items
@@ -6,7 +7,7 @@ import Item from '../models/Item.js';
 export const getItems = async (req, res) => {
     try {
         let query = {};
-        if (req.user.role === 'ADMIN') {
+        if (req.user.role !== 'SUPER_ADMIN') {
             query.companyId = req.user.companyId;
             query.branchId = req.user.branchId;
         }
@@ -22,7 +23,7 @@ export const getItems = async (req, res) => {
 // @access  Private
 export const getItemById = async (req, res) => {
     try {
-        const item = await Item.findById(req.params.id);
+        const item = await findDocument(Item, req.params.id, req.user);
         if (!item) {
             return res.status(404).json({ success: false, message: 'Item not found' });
         }
@@ -38,13 +39,37 @@ export const getItemById = async (req, res) => {
 export const createItem = async (req, res) => {
     try {
         const payload = { ...req.body };
-        if (req.user.role === 'ADMIN') {
+        if (req.user.role !== 'SUPER_ADMIN') {
             payload.companyId = req.user.companyId;
             payload.branchId = req.user.branchId;
         }
+
+        // Auto-generate SKU if not provided
+        if (!payload.sku || payload.sku.trim() === '') {
+            const query = req.user.role !== 'SUPER_ADMIN'
+                ? { companyId: req.user.companyId }
+                : {};
+            const count = await Item.countDocuments(query);
+            payload.sku = `ITEM-${String(count + 1).padStart(4, '0')}`;
+        }
+
         const item = await Item.create(payload);
         res.status(201).json({ success: true, data: item });
     } catch (error) {
+        // If SKU collision (unique constraint), retry with timestamp suffix
+        if (error.code === 11000 && error.keyPattern?.sku) {
+            try {
+                const payload2 = { ...req.body, sku: `ITEM-${Date.now()}` };
+                if (req.user.role !== 'SUPER_ADMIN') {
+                    payload2.companyId = req.user.companyId;
+                    payload2.branchId = req.user.branchId;
+                }
+                const item = await Item.create(payload2);
+                return res.status(201).json({ success: true, data: item });
+            } catch (err2) {
+                return res.status(400).json({ success: false, message: err2.message });
+            }
+        }
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -54,13 +79,12 @@ export const createItem = async (req, res) => {
 // @access  Private
 export const updateItem = async (req, res) => {
     try {
-        const item = await Item.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true,
-        });
+        const item = await findDocument(Item, req.params.id, req.user);
         if (!item) {
             return res.status(404).json({ success: false, message: 'Item not found' });
         }
+        Object.assign(item, req.body);
+        await item.save();
         res.json({ success: true, data: item });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -72,7 +96,7 @@ export const updateItem = async (req, res) => {
 // @access  Private
 export const deleteItem = async (req, res) => {
     try {
-        const item = await Item.findById(req.params.id);
+        const item = await findDocument(Item, req.params.id, req.user);
         if (!item) {
             return res.status(404).json({ success: false, message: 'Item not found' });
         }

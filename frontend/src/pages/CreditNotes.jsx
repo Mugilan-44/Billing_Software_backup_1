@@ -1,21 +1,24 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useContext } from 'react';
+import axios from '../utils/api';
 import { Plus, Trash2, FileMinus, Settings, ReceiptText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const CreditNotes = () => {
     const navigate = useNavigate();
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { taxSystemMode } = useContext(AuthContext);
 
     useEffect(() => {
         fetchNotes();
-    }, []);
+    }, [taxSystemMode]);
 
     const fetchNotes = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('/api/credit-notes');
+            const queryParam = taxSystemMode !== 'OVERALL' ? `?taxMode=${taxSystemMode}` : '';
+            const res = await axios.get(`/api/credit-notes${queryParam}`);
             setNotes(res.data.data);
         } catch (error) {
             console.error('Error fetching credit notes', error);
@@ -92,7 +95,7 @@ const CreditNotes = () => {
                                 </tr>
                             ) : (
                                 notes.map((note) => (
-                                    <tr key={note._id} className="hover:bg-red-50/30 transition-colors group cursor-pointer" onClick={() => navigate(`/credit-notes/${note._id}/edit`)}>
+                                    <tr key={note._id} className="hover:bg-red-50/30 transition-colors group cursor-pointer" onClick={() => navigate(`/credit-notes/${note._id}`)}>
                                         <td className="px-6 py-5 text-sm font-bold text-slate-700">
                                             {new Date(note.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </td>
