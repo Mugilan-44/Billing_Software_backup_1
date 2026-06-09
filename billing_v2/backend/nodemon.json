@@ -1,0 +1,24 @@
+{
+    "watch": [
+        "server.js",
+        "controllers/",
+        "routes/",
+        "models/",
+        "middleware/",
+        "utils/",
+        "config/"
+    ],
+    "ext": "js,mjs",
+    "ignore": [
+        "node_modules/",
+        "uploads/",
+        "dist/",
+        "*.log",
+        "check-routes.js",
+        "db-check*.js",
+        "verify-auth.js",
+        "test-login.js",
+        "debug_users.js",
+        "test_chart.js"
+    ]
+}
