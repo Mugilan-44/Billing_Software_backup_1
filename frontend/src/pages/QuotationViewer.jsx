@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Download, Share2, Edit, Mail, Printer, ClipboardList } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const QuotationViewer = () => {
     const { id } = useParams();
@@ -28,15 +29,27 @@ const QuotationViewer = () => {
     }, [id]);
 
     const handleDownloadPDF = () => {
-        const element = quoteRef.current;
-        const opt = {
-            margin: 0,
-            filename: `Quotation_${quoteData.quotation.quoteNumber}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const q = quoteData.quotation;
+        const s = quoteData.settings;
+        doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
+        doc.text('Quotation', 14, 20);
+        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+        doc.text(s?.companyName || '', 14, 28);
+        doc.text(`#${q.quoteNumber || ''}`, 196, 20, { align: 'right' });
+        doc.text(`Date: ${new Date(q.quoteDate).toLocaleDateString('en-IN')}`, 196, 26, { align: 'right' });
+        doc.setDrawColor(226, 232, 240); doc.line(14, 34, 196, 34);
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(148, 163, 184);
+        doc.text('CLIENT', 14, 42);
+        doc.setFontSize(11); doc.setTextColor(30, 41, 59);
+        doc.text(q.customerId?.companyName || '', 14, 48);
+        const headers = [['Item', 'Qty', 'Rate', 'Amount']];
+        const rows = q.items.map(i => [i.name || 'Item', String(i.quantity), `\u20b9${(i.rate || 0).toFixed(2)}`, `\u20b9${((i.quantity || 0) * (i.rate || 0)).toFixed(2)}`]);
+        doc.autoTable({ head: headers, body: rows, startY: 54, theme: 'grid', styles: { fontSize: 9, cellPadding: 4, textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.3 }, headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'bold' }, margin: { left: 14, right: 14 } });
+        const fy = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(37, 99, 235);
+        doc.text(`Total: \u20b9${(q.grandTotal || 0).toFixed(2)}`, 196, fy, { align: 'right' });
+        doc.save(`Quotation_${q.quoteNumber}.pdf`);
     };
 
     const handleShareWhatsApp = () => {

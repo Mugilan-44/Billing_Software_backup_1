@@ -36,6 +36,8 @@ const companySettingsSchema = new mongoose.Schema({
         symbol: { type: String, default: '₹' }
     },
     logoUrl: String,
+    signatureUrl: String,
+    upiQrUrl: String,
     bankDetails: {
         accountName: String,
         accountNumber: String,

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Download, Share2, Edit, FileText, CheckCircle, Mail, Printer } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const InvoiceViewer = () => {
     const { id } = useParams();
@@ -28,15 +29,105 @@ const InvoiceViewer = () => {
     }, [id]);
 
     const handleDownloadPDF = () => {
-        const element = invoiceRef.current;
-        const opt = {
-            margin: 0,
-            filename: `Invoice_${invoiceData.invoice.invoiceNumber}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const inv = invoice;
+        const cust = customer;
+
+        // Title
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text('Invoice', 14, 22);
+
+        // Company info
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(settings?.companyName || 'Company', 14, 30);
+        doc.text([settings?.address?.street, settings?.address?.city, settings?.address?.state].filter(Boolean).join(', '), 14, 35);
+        doc.text(`GSTIN: ${settings?.gstNumber || 'N/A'}`, 14, 40);
+
+        // Invoice details (right side)
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text(`#${inv.invoiceNumber}`, 196, 22, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Date: ${new Date(inv.date).toLocaleDateString('en-IN')}`, 196, 28, { align: 'right' });
+        if (inv.dueDate) doc.text(`Due: ${new Date(inv.dueDate).toLocaleDateString('en-IN')}`, 196, 34, { align: 'right' });
+
+        // Bill To
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 45, 196, 45);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(148, 163, 184);
+        doc.text('BILLED TO', 14, 52);
+        doc.setFontSize(11);
+        doc.setTextColor(30, 41, 59);
+        doc.text(cust?.companyName || 'Customer', 14, 58);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        if (cust?.billingAddress) {
+            doc.text([cust.billingAddress.street, cust.billingAddress.city, cust.billingAddress.state].filter(Boolean).join(', '), 14, 63);
+        }
+        doc.text(`GSTIN: ${cust?.gstNumber || 'URD'}`, 14, 68);
+
+        // Items table
+        const tableHeaders = [['Item', 'Qty', 'Rate', 'GST', 'Amount']];
+        const tableData = inv.items.map(item => [
+            item.name || item.itemId?.name || 'Item',
+            String(item.quantity),
+            `₹${(item.rate || 0).toFixed(2)}`,
+            `${item.gstPercentage || 0}%`,
+            `₹${(item.amount || 0).toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+            head: tableHeaders,
+            body: tableData,
+            startY: 74,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 4, textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.3 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'bold', fontSize: 8 },
+            columnStyles: { 0: { cellWidth: 70 }, 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'center' }, 4: { halign: 'right' } },
+            margin: { left: 14, right: 14 },
+        });
+
+        // Totals
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Sub Total:', 140, finalY);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`₹${(inv.subTotal || 0).toFixed(2)}`, 196, finalY, { align: 'right' });
+
+        doc.setTextColor(100, 116, 139);
+        doc.text('CGST:', 140, finalY + 6);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`₹${(inv.taxTotal?.cgst || 0).toFixed(2)}`, 196, finalY + 6, { align: 'right' });
+
+        doc.setTextColor(100, 116, 139);
+        doc.text('SGST:', 140, finalY + 12);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`₹${(inv.taxTotal?.sgst || 0).toFixed(2)}`, 196, finalY + 12, { align: 'right' });
+
+        doc.setDrawColor(30, 41, 59);
+        doc.line(140, finalY + 16, 196, finalY + 16);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Grand Total:', 140, finalY + 23);
+        doc.setTextColor(37, 99, 235);
+        doc.text(`₹${(inv.grandTotal || 0).toFixed(2)}`, 196, finalY + 23, { align: 'right' });
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Prolync Book • ${settings?.companyName || ''}`, 105, 285, { align: 'center' });
+
+        doc.save(`Invoice_${inv.invoiceNumber}.pdf`);
     };
 
     const handleShareWhatsApp = () => {
@@ -64,7 +155,7 @@ const InvoiceViewer = () => {
             <div className="flex justify-between items-start border-b border-slate-100 pb-8 mb-8">
                 <div>
                     {settings?.logoUrl ? (
-                        <img src={`${settings.logoUrl}`} alt="Logo" className="h-16 object-contain mb-4" />
+                        <img src={settings.logoUrl.startsWith('http') ? settings.logoUrl : `${window.location.origin}${settings.logoUrl}`} alt="Logo" className="h-16 object-contain mb-4" crossOrigin="anonymous" />
                     ) : (
                         <h1 className="text-2xl font-black text-slate-900 mb-2">{settings?.companyName || 'Transport Company'}</h1>
                     )}
@@ -185,6 +276,27 @@ const InvoiceViewer = () => {
                     <p className="text-sm text-slate-600">{invoice.notes}</p>
                 </div>
             )}
+
+            {/* Signature & UPI QR Section */}
+            <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between items-end">
+                <div>
+                    {settings?.upiQrUrl && (
+                        <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Scan to Pay</p>
+                            <img src={settings.upiQrUrl.startsWith('http') ? settings.upiQrUrl : `${window.location.origin}${settings.upiQrUrl}`} alt="UPI QR" className="w-24 h-24 object-contain border border-slate-200 rounded-lg p-1" crossOrigin="anonymous" />
+                        </div>
+                    )}
+                </div>
+                <div className="text-right">
+                    {settings?.signatureUrl && (
+                        <div>
+                            <img src={settings.signatureUrl.startsWith('http') ? settings.signatureUrl : `${window.location.origin}${settings.signatureUrl}`} alt="Signature" className="h-16 object-contain mb-2 ml-auto" crossOrigin="anonymous" />
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Authorised Signatory</p>
+                            <p className="text-xs text-slate-400">{settings?.companyName}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 
@@ -253,7 +365,7 @@ const InvoiceViewer = () => {
             <div className="flex justify-between items-start mb-12 relative z-10">
                 <div>
                     {settings?.logoUrl ? (
-                        <img src={`${settings.logoUrl}`} alt="Logo" className="h-20 object-contain mb-6" />
+                        <img src={settings.logoUrl.startsWith('http') ? settings.logoUrl : `${window.location.origin}${settings.logoUrl}`} alt="Logo" className="h-20 object-contain mb-6" crossOrigin="anonymous" />
                     ) : (
                         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">{settings?.companyName || 'Prolync Book'}</h1>
                     )}
@@ -362,6 +474,27 @@ const InvoiceViewer = () => {
                         <span className="text-xs font-black uppercase text-slate-400 tracking-widest">Amount Due</span>
                         <span className="text-3xl font-black text-slate-900">₹{(invoice.grandTotal - (invoice.amountPaid || 0)).toFixed(2)}</span>
                     </div>
+                </div>
+            </div>
+
+            {/* Signature & UPI QR Section */}
+            <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-end">
+                <div>
+                    {settings?.upiQrUrl && (
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Scan to Pay</p>
+                            <img src={settings.upiQrUrl.startsWith('http') ? settings.upiQrUrl : `${window.location.origin}${settings.upiQrUrl}`} alt="UPI QR" className="w-28 h-28 object-contain border border-slate-200 rounded-xl p-1" crossOrigin="anonymous" />
+                        </div>
+                    )}
+                </div>
+                <div className="text-right">
+                    {settings?.signatureUrl && (
+                        <div>
+                            <img src={settings.signatureUrl.startsWith('http') ? settings.signatureUrl : `${window.location.origin}${settings.signatureUrl}`} alt="Signature" className="h-16 object-contain mb-2 ml-auto" crossOrigin="anonymous" />
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Authorised Signatory</p>
+                            <p className="text-xs text-slate-400">{settings?.companyName}</p>
+                        </div>
+                    )}
                 </div>
             </div>
 

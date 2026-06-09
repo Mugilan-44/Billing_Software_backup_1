@@ -25,11 +25,9 @@ const ItemForm = () => {
         sku: '',
         type: 'Goods',
         unit: 'pcs',
-        sellingPrice: 0,
-        purchasePrice: 0,
-        gstPercentage: 18,
+        sellingPrice: '',
         hsnSacCode: '',
-        availableStock: 0,
+        availableStock: '',
         lowStockAlert: 5,
         description: ''
     });
@@ -47,11 +45,12 @@ const ItemForm = () => {
             setForm({
                 name: item.name || '',
                 sku: item.sku || '',
+                type: item.type || 'Goods',
                 unit: item.unit || 'pcs',
-                sellingPrice: item.sellingPrice || 0,
-                purchasePrice: item.purchasePrice || 0,
-                gstPercentage: item.gstPercentage || 0,
-                availableStock: item.openingStock || 0, // Map backend openingStock to frontend availableStock
+                sellingPrice: item.sellingPrice || '',
+                hsnSacCode: item.hsnSacCode || '',
+                availableStock: item.openingStock || '',
+                lowStockAlert: item.lowStockAlert || 5,
                 description: item.description || ''
             });
         } catch (err) {
@@ -206,55 +205,27 @@ const ItemForm = () => {
 
                     <InputRow label="Selling Price (₹)" required>
                         <div className="relative max-w-xs">
-                            <span className="absolute left-3 top-2 text-slate-400 text-sm">₹</span>
+                            <span className="absolute left-3 top-2.5 text-slate-400 text-sm">₹</span>
                             <input
-                                type="number"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 className="input-field pl-8"
                                 value={form.sellingPrice}
-                                onChange={e => handleChange('sellingPrice', Number(e.target.value))}
+                                onChange={e => handleChange('sellingPrice', e.target.value === '' ? '' : Number(e.target.value) || e.target.value)}
+                                placeholder="0.00"
                                 required
                             />
-                        </div>
-                    </InputRow>
-
-                    <InputRow label="Purchase Price (₹)">
-                        <div className="relative max-w-xs">
-                            <span className="absolute left-3 top-2 text-slate-400 text-sm">₹</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="input-field pl-8"
-                                value={form.purchasePrice}
-                                onChange={e => handleChange('purchasePrice', Number(e.target.value))}
-                            />
-                        </div>
-                    </InputRow>
-
-                    <InputRow label="Tax (GST %)">
-                        <div className="flex items-center gap-3">
-                            <select
-                                className="input-field w-32"
-                                value={form.gstPercentage}
-                                onChange={e => handleChange('gstPercentage', Number(e.target.value))}
-                            >
-                                <option value={0}>0% (Exempt)</option>
-                                <option value={5}>5%</option>
-                                <option value={12}>12%</option>
-                                <option value={18}>18%</option>
-                                <option value={28}>28%</option>
-                            </select>
-                            <span className="text-xs text-slate-500 italic">Standard GST rate</span>
                         </div>
                     </InputRow>
 
                     <InputRow label="Available Stock">
                         <div className="flex items-center gap-3">
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 className="input-field max-w-[140px] font-bold text-slate-900"
                                 value={form.availableStock}
-                                onChange={e => handleChange('availableStock', Number(e.target.value))}
+                                onChange={e => handleChange('availableStock', e.target.value === '' ? '' : Number(e.target.value) || e.target.value)}
                                 placeholder="0"
                             />
                             <span className="text-xs text-slate-400 uppercase font-bold tracking-widest bg-slate-100 px-3 py-1 rounded-full border border-slate-200">{form.unit}</span>

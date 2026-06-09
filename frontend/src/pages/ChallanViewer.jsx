@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Download, Share2, Printer, Edit } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const ChallanViewer = () => {
     const { id } = useParams();
@@ -26,15 +27,22 @@ const ChallanViewer = () => {
     }, [id]);
 
     const handleDownloadPDF = () => {
-        const element = quoteRef.current;
-        const opt = {
-            margin: 0,
-            filename: `Challan_${challanData.challan.challanNumber}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const c = challanData.challan;
+        const s = challanData.settings;
+        doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
+        doc.text('Delivery Challan', 14, 20);
+        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+        doc.text(s?.companyName || '', 14, 28);
+        doc.text(`#${c.challanNumber || ''}`, 196, 20, { align: 'right' });
+        doc.text(`Date: ${new Date(c.challanDate || c.date).toLocaleDateString('en-IN')}`, 196, 26, { align: 'right' });
+        doc.setDrawColor(226, 232, 240); doc.line(14, 34, 196, 34);
+        doc.setFontSize(11); doc.setTextColor(30, 41, 59);
+        doc.text(c.customerId?.companyName || '', 14, 44);
+        const headers = [['Item', 'Qty', 'Rate', 'Amount']];
+        const rows = (c.items || []).map(i => [i.name || i.itemId?.name || 'Item', String(i.quantity || 0), `\u20b9${(i.rate || 0).toFixed(2)}`, `\u20b9${((i.quantity || 0) * (i.rate || 0)).toFixed(2)}`]);
+        doc.autoTable({ head: headers, body: rows, startY: 50, theme: 'grid', styles: { fontSize: 9, cellPadding: 4, textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.3 }, headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'bold' }, margin: { left: 14, right: 14 } });
+        doc.save(`Challan_${c.challanNumber}.pdf`);
     };
 
     const handleShareWhatsApp = () => {

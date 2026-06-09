@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
-import { Settings as SettingsIcon, Save, Image as ImageIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Image as ImageIcon, PenTool, QrCode } from 'lucide-react';
 
 const Settings = () => {
     const [loading, setLoading] = useState(true);
@@ -10,6 +10,8 @@ const Settings = () => {
 
     const { register, handleSubmit, reset, watch, setValue } = useForm();
     const logoUrl = watch('logoUrl');
+    const signatureUrl = watch('signatureUrl');
+    const upiQrUrl = watch('upiQrUrl');
 
     useEffect(() => {
         fetchSettings();
@@ -44,6 +46,34 @@ const Settings = () => {
             alert('Failed to upload logo. Please try again.');
         } finally {
             setUploadingLogo(false);
+        }
+    };
+
+    const handleSignatureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('image', file);
+        try {
+            const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            setValue('signatureUrl', res.data.url, { shouldDirty: true });
+        } catch (err) {
+            console.error('Error uploading signature:', err);
+            alert('Failed to upload signature.');
+        }
+    };
+
+    const handleUpiQrUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('image', file);
+        try {
+            const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            setValue('upiQrUrl', res.data.url, { shouldDirty: true });
+        } catch (err) {
+            console.error('Error uploading UPI QR:', err);
+            alert('Failed to upload UPI QR code.');
         }
     };
 
@@ -113,6 +143,56 @@ const Settings = () => {
                                   hover:file:bg-primary-100 cursor-pointer"
                                 onChange={handleLogoUpload}
                                 disabled={uploadingLogo}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Signature Upload */}
+                <div className="card">
+                    <h3 className="text-lg font-medium text-gray-800 border-b border-gray-100 pb-3 mb-4 flex items-center">
+                        <PenTool size={18} className="mr-2 text-primary-500" /> Authorised Signature
+                    </h3>
+                    <div className="flex items-center space-x-6">
+                        <div className="w-40 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+                            {signatureUrl ? (
+                                <img src={`${signatureUrl}`} alt="Signature" className="max-w-full max-h-full object-contain p-2" />
+                            ) : (
+                                <span className="text-gray-400 text-sm">No Signature</span>
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 mb-3">Upload your authorised signature for invoices.<br />Recommended: transparent PNG (Max 2MB).</p>
+                            <input
+                                type="file"
+                                accept="image/png, image/jpeg, image/jpg"
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+                                onChange={handleSignatureUpload}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* UPI QR Upload */}
+                <div className="card">
+                    <h3 className="text-lg font-medium text-gray-800 border-b border-gray-100 pb-3 mb-4 flex items-center">
+                        <QrCode size={18} className="mr-2 text-primary-500" /> UPI QR Code
+                    </h3>
+                    <div className="flex items-center space-x-6">
+                        <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+                            {upiQrUrl ? (
+                                <img src={`${upiQrUrl}`} alt="UPI QR" className="max-w-full max-h-full object-contain p-2" />
+                            ) : (
+                                <span className="text-gray-400 text-sm text-center">No QR Code</span>
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 mb-3">Upload your UPI QR code for payment collection.<br />This will appear on invoices (Max 2MB, PNG/JPG).</p>
+                            <input
+                                type="file"
+                                accept="image/png, image/jpeg, image/jpg"
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+                                onChange={handleUpiQrUpload}
                             />
                         </div>
                     </div>

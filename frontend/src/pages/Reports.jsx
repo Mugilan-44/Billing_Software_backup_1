@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart3, Download, Filter, Calendar, FileText, ChevronRight } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const Reports = () => {
     const [reportType, setReportType] = useState('sales');
@@ -65,6 +67,92 @@ const Reports = () => {
         document.body.removeChild(a);
     };
 
+    const handleDownloadPDF = () => {
+        if (data.length === 0) return;
+
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        // Header
+        const reportTitle = {
+            sales: 'Sales & Revenue Report',
+            gst: 'GST Output Report',
+            aging: 'Outstanding Aging Report'
+        }[reportType] || 'Business Report';
+
+        // Title area
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59); // slate-800
+        doc.text(reportTitle, 14, 20);
+
+        // Subtitle
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139); // slate-500
+        const dateRange = startDate && endDate
+            ? `Period: ${startDate} to ${endDate}`
+            : `Generated on: ${new Date().toLocaleDateString('en-IN')}`;
+        doc.text(dateRange, 14, 28);
+
+        // Separator line
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.setLineWidth(0.5);
+        doc.line(14, 32, doc.internal.pageSize.width - 14, 32);
+
+        // Table
+        const headers = Object.keys(data[0]);
+        const formattedHeaders = headers.map(h => h.replace(/([A-Z])/g, ' $1').trim());
+
+        const rows = data.map(row =>
+            headers.map(h => {
+                const val = row[h];
+                if (typeof val === 'number') return `₹${val.toFixed(2)}`;
+                return String(val ?? '');
+            })
+        );
+
+        doc.autoTable({
+            head: [formattedHeaders],
+            body: rows,
+            startY: 36,
+            theme: 'grid',
+            styles: {
+                fontSize: 9,
+                cellPadding: 4,
+                font: 'helvetica',
+                textColor: [51, 65, 85],   // slate-700
+                lineColor: [226, 232, 240], // slate-200
+                lineWidth: 0.3,
+            },
+            headStyles: {
+                fillColor: [241, 245, 249],  // slate-100
+                textColor: [51, 65, 85],     // slate-700
+                fontStyle: 'bold',
+                fontSize: 8,
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252],  // slate-50
+            },
+            margin: { left: 14, right: 14 },
+        });
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184); // slate-400
+            doc.text(
+                `Prolync Book • Page ${i} of ${pageCount}`,
+                doc.internal.pageSize.width / 2,
+                doc.internal.pageSize.height - 8,
+                { align: 'center' }
+            );
+        }
+
+        doc.save(`${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
     return (
         <div className="max-w-7xl mx-auto mb-12">
             {/* Header Area */}
@@ -79,14 +167,24 @@ const Reports = () => {
                     </div>
                 </div>
 
-                <button
-                    onClick={handleExportCSV}
-                    disabled={data.length === 0}
-                    className={`btn-secondary flex items-center gap-2 px-6 py-2.5 rounded-xl border border-slate-200 transition-all ${data.length === 0 ? 'opacity-50 cursor-not-allowed bg-slate-50 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 active:scale-95 shadow-sm'}`}
-                >
-                    <Download size={18} />
-                    <span className="font-bold text-sm">Export Data (CSV)</span>
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleDownloadPDF}
+                        disabled={data.length === 0}
+                        className={`btn-primary flex items-center gap-2 px-5 py-2.5 ${data.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        <Download size={18} />
+                        <span className="font-bold text-sm">Download PDF</span>
+                    </button>
+                    <button
+                        onClick={handleExportCSV}
+                        disabled={data.length === 0}
+                        className={`btn-secondary flex items-center gap-2 px-5 py-2.5 ${data.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        <Download size={18} />
+                        <span className="font-bold text-sm">Export CSV</span>
+                    </button>
+                </div>
             </div>
 
             {/* Filter Section */}
@@ -125,7 +223,7 @@ const Reports = () => {
                     )}
 
                     <div className="col-span-1">
-                        <button type="submit" className="w-full btn-primary bg-indigo-600 hover:bg-indigo-700 h-[46px] flex items-center justify-center gap-2 border-indigo-600 shadow-lg shadow-indigo-500/20">
+                        <button type="submit" className="w-full btn-primary bg-indigo-600 hover:bg-indigo-700 h-[46px] flex items-center justify-center gap-2 border-indigo-600 shadow-lg shadow-indigo-500/20" style={{ background: 'linear-gradient(135deg, #4f46e5, #4338ca)' }}>
                             <Filter size={18} />
                             Generate Report
                         </button>

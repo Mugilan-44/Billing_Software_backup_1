@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Settings, Search, Plus, Trash2, Save, Info } from 'lucide-react';
+import { ArrowLeft, Settings, Search, Plus, Trash2, Save, Info, Copy } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog';
+import StockWarningDialog from '../components/StockWarningDialog';
+import BulkAddModal from '../components/BulkAddModal';
+import useUnsavedChanges from '../utils/useUnsavedChanges';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -20,6 +24,7 @@ const InvoiceForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const isEdit = Boolean(id);
+    const unsaved = useUnsavedChanges();
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -34,12 +39,22 @@ const InvoiceForm = () => {
     const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
     const [isSimplifiedView, setIsSimplifiedView] = useState(true);
 
+    // Shipping address
+    const [shippingAddress, setShippingAddress] = useState({ street1: '', street2: '', city: '', state: '', zipCode: '' });
+    const [showShipping, setShowShipping] = useState(false);
+
     const [items, setItems] = useState([
         { itemId: '', quantity: 1, rate: 0, discountType: '%', discount: 0, taxGst: 0 }
     ]);
 
     const [notes, setNotes] = useState('Thanks for your business.');
     const [termsAndConditions, setTermsAndConditions] = useState('Enter the terms and conditions of your business to be displayed in your transaction');
+
+    // Dialogs
+    const [stockWarnings, setStockWarnings] = useState([]);
+    const [showStockWarning, setShowStockWarning] = useState(false);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [pendingSubmitAction, setPendingSubmitAction] = useState(null);
 
     useEffect(() => {
         fetchCustomers();
@@ -98,7 +113,14 @@ const InvoiceForm = () => {
         } catch (err) { console.error('Error fetching invoice', err); }
     };
 
+    // Mark form as dirty on any field change
+    const handleFieldChange = (setter) => (value) => {
+        unsaved.markDirty();
+        setter(value);
+    };
+
     const handleItemChange = (index, field, value) => {
+        unsaved.markDirty();
         const newItems = [...items];
         if (field === 'itemId') {
             const selectedItem = catalogItems.find(c => c._id === value);
@@ -115,12 +137,44 @@ const InvoiceForm = () => {
     };
 
     const handleAddItem = () => {
+        unsaved.markDirty();
         setItems([...items, { itemId: '', quantity: 1, rate: 0, discountType: '%', discount: 0, taxGst: 0 }]);
     };
 
     const removeItem = (index) => {
         if (items.length > 1) {
+            unsaved.markDirty();
             setItems(items.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleBulkAdd = (selectedItems) => {
+        unsaved.markDirty();
+        const newLineItems = selectedItems.map(item => ({
+            itemId: item._id,
+            quantity: 1,
+            rate: item.sellingPrice || 0,
+            discountType: '%',
+            discount: 0,
+            taxGst: item.gstPercentage || 0
+        }));
+        // Remove empty first row if it exists
+        const existingItems = items.filter(i => i.itemId);
+        setItems([...existingItems, ...newLineItems]);
+    };
+
+    const copyBillingToShipping = () => {
+        const customer = customers.find(c => c._id === customerId);
+        if (customer?.billingAddress) {
+            setShippingAddress({
+                street1: customer.billingAddress.street1 || customer.billingAddress.street || '',
+                street2: customer.billingAddress.street2 || '',
+                city: customer.billingAddress.city || '',
+                state: customer.billingAddress.state || '',
+                zipCode: customer.billingAddress.zipCode || ''
+            });
+            setShowShipping(true);
+            unsaved.markDirty();
         }
     };
 
@@ -145,10 +199,37 @@ const InvoiceForm = () => {
 
     const totals = calculateTotals();
 
-    const handleSubmit = async (e, actionType) => {
+    // Check stock levels before submit
+    const checkStockAndSubmit = (e, actionType) => {
         e.preventDefault();
         if (!customerId) return setError('Please select a customer');
 
+        const warnings = [];
+        items.forEach(item => {
+            if (!item.itemId) return;
+            const catalogItem = catalogItems.find(c => c._id === item.itemId);
+            if (catalogItem) {
+                const available = catalogItem.stockQuantity ?? catalogItem.openingStock ?? 0;
+                if (item.quantity > available && catalogItem.type === 'Goods') {
+                    warnings.push({
+                        itemName: catalogItem.name,
+                        requested: item.quantity,
+                        available: available
+                    });
+                }
+            }
+        });
+
+        if (warnings.length > 0) {
+            setStockWarnings(warnings);
+            setShowStockWarning(true);
+            setPendingSubmitAction(actionType);
+        } else {
+            executeSubmit(actionType);
+        }
+    };
+
+    const executeSubmit = async (actionType) => {
         setLoading(true);
         setError('');
 
@@ -166,7 +247,7 @@ const InvoiceForm = () => {
                 rate: i.rate,
                 gstPercentage: i.taxGst
             })),
-            discount: 0, // Migrated to line items conceptually
+            discount: 0,
             subTotal: totals.subTotal,
             taxTotal: { cgst: totals.taxTotal / 2, sgst: totals.taxTotal / 2, igst: 0, totalTax: totals.taxTotal },
             grandTotal: totals.grandTotal,
@@ -179,6 +260,7 @@ const InvoiceForm = () => {
             } else {
                 await axios.post('/api/invoices', payload);
             }
+            unsaved.markClean();
             navigate('/invoices');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save invoice');
@@ -186,12 +268,41 @@ const InvoiceForm = () => {
         }
     };
 
+    const safeNavigate = (path) => {
+        unsaved.tryNavigate(() => navigate(path));
+    };
+
+    // Number input handler — allows empty string so backspace works on 0
+    const numValue = (val) => (val === 0 || val === '0' || val === '' ? '' : val);
+
     return (
         <div className="max-w-6xl mx-auto bg-white shadow-sm rounded-lg border border-slate-200 mt-6 mb-12 overflow-hidden">
+            {/* Dialogs */}
+            <UnsavedChangesDialog
+                isOpen={unsaved.showDialog}
+                onDiscard={unsaved.confirmNavigation}
+                onStay={unsaved.cancelNavigation}
+            />
+            <StockWarningDialog
+                isOpen={showStockWarning}
+                warnings={stockWarnings}
+                onContinue={() => {
+                    setShowStockWarning(false);
+                    executeSubmit(pendingSubmitAction);
+                }}
+                onGoBack={() => setShowStockWarning(false)}
+            />
+            <BulkAddModal
+                isOpen={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                catalogItems={catalogItems}
+                onAddSelected={handleBulkAdd}
+            />
+
             {/* Header */}
             <div className="flex items-center justify-between bg-slate-50/50 border-b border-slate-200 px-6 py-4">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/invoices')}
+                    <button onClick={() => safeNavigate('/invoices')}
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
@@ -212,10 +323,10 @@ const InvoiceForm = () => {
                             <div className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${isSimplifiedView ? 'translate-x-4' : 'translate-x-1'}`}></div>
                         </div>
                     </div>
-                    <button type="button" onClick={() => navigate('/invoices')} className="btn-secondary">
+                    <button type="button" onClick={() => safeNavigate('/invoices')} className="btn-secondary">
                         Cancel
                     </button>
-                    <button type="button" onClick={(e) => handleSubmit(e, 'send')} disabled={loading}
+                    <button type="button" onClick={(e) => checkStockAndSubmit(e, 'send')} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
                         {loading ? 'Saving...' : 'Save and Send'}
@@ -241,10 +352,12 @@ const InvoiceForm = () => {
                             value={customers.find(c => c._id === customerId)?.companyName || ''}
                             onChange={(name) => {
                                 const cust = customers.find(c => c.companyName === name);
-                                if (cust) setCustomerId(cust._id);
+                                if (cust) {
+                                    handleFieldChange(setCustomerId)(cust._id);
+                                }
                             }}
                             placeholder="Select or add a customer"
-                            onAddNew={() => navigate('/customers/new')}
+                            onAddNew={() => safeNavigate('/customers/new')}
                             addNewLabel="New Customer"
                         />
                     </InputRow>
@@ -258,14 +371,14 @@ const InvoiceForm = () => {
                                 type="date"
                                 className="input-field max-w-[200px]"
                                 value={date}
-                                onChange={(e) => setDate(e.target.value)}
+                                onChange={(e) => handleFieldChange(setDate)(e.target.value)}
                             />
                             <div className="flex items-center gap-4 flex-1 max-w-sm">
                                 <label className="text-sm font-medium text-slate-700">Payment Terms</label>
                                 <select
                                     className="input-field"
                                     value={paymentTerms}
-                                    onChange={(e) => setPaymentTerms(e.target.value)}
+                                    onChange={(e) => handleFieldChange(setPaymentTerms)(e.target.value)}
                                 >
                                     <option>Due on Receipt</option>
                                     <option>Net 15</option>
@@ -282,9 +395,40 @@ const InvoiceForm = () => {
                             type="date"
                             className="input-field max-w-[200px]"
                             value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
+                            onChange={(e) => handleFieldChange(setDueDate)(e.target.value)}
                         />
                     </InputRow>
+
+                    {/* Shipping Address Section */}
+                    <div className="py-3 border-b border-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="text-sm font-medium text-slate-700">Shipping Address</label>
+                            <div className="flex items-center gap-3">
+                                {customerId && (
+                                    <button type="button" onClick={copyBillingToShipping}
+                                        className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                                        <Copy size={14} /> Copy from Billing
+                                    </button>
+                                )}
+                                <button type="button" onClick={() => setShowShipping(!showShipping)}
+                                    className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
+                                    {showShipping ? 'Hide' : 'Add Shipping'}
+                                </button>
+                            </div>
+                        </div>
+                        {showShipping && (
+                            <div className="grid grid-cols-2 gap-3 ml-48">
+                                <input type="text" className="input-field col-span-2" placeholder="Street Address"
+                                    value={shippingAddress.street1} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, street1: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="City"
+                                    value={shippingAddress.city} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, city: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="State"
+                                    value={shippingAddress.state} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, state: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="Pin Code"
+                                    value={shippingAddress.zipCode} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, zipCode: e.target.value })); }} />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <hr className="my-8 border-gray-200" />
@@ -325,21 +469,21 @@ const InvoiceForm = () => {
                                                         if (selected) handleItemChange(idx, 'itemId', selected._id);
                                                     }}
                                                     placeholder="Select Item"
-                                                    onAddNew={() => navigate('/items/new')}
+                                                    onAddNew={() => safeNavigate('/items/new')}
                                                     addNewLabel="New Item"
                                                 />
                                                 {item.itemId && (
                                                     <div className="text-[10px] font-bold text-slate-400 mt-1.5 px-1 uppercase tracking-tight">
-                                                        Tax: {item.taxGst}%
+                                                        GST: {item.taxGst}%
                                                     </div>
                                                 )}
                                             </td>
                                             <td className="p-3 border-l border-slate-50/50">
                                                 <input
-                                                    type="number"
-                                                    min="1"
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent"
-                                                    value={item.quantity}
+                                                    value={numValue(item.quantity)}
                                                     onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                                                 />
                                             </td>
@@ -347,10 +491,10 @@ const InvoiceForm = () => {
                                                 <div className="relative">
                                                     <span className="absolute left-0 top-1 text-slate-400 text-xs">₹</span>
                                                     <input
-                                                        type="number"
-                                                        min="0" step="0.01"
+                                                        type="text"
+                                                        inputMode="decimal"
                                                         className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent"
-                                                        value={item.rate}
+                                                        value={numValue(item.rate)}
                                                         onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
                                                     />
                                                 </div>
@@ -358,10 +502,10 @@ const InvoiceForm = () => {
                                             <td className="p-3 border-l border-slate-50/50">
                                                 <div className="flex items-center justify-end">
                                                     <input
-                                                        type="number"
-                                                        min="0"
+                                                        type="text"
+                                                        inputMode="numeric"
                                                         className="w-12 text-right py-1 px-1 text-sm border-0 border-b border-transparent bg-transparent hover:bg-slate-50 focus:ring-0 focus:border-blue-400"
-                                                        value={item.discount}
+                                                        value={numValue(item.discount)}
                                                         onChange={(e) => handleItemChange(idx, 'discount', e.target.value)}
                                                     />
                                                     <select
@@ -394,7 +538,7 @@ const InvoiceForm = () => {
                             <Plus size={14} strokeWidth={3} /> Add Line Item
                         </button>
                         <div className="h-4 w-px bg-slate-200"></div>
-                        <button type="button" className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
+                        <button type="button" onClick={() => setShowBulkModal(true)} className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
                             Add Items in Bulk
                         </button>
                     </div>
@@ -408,7 +552,7 @@ const InvoiceForm = () => {
                                 className="w-full text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 p-3 bg-gray-50/50"
                                 rows="3"
                                 value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
+                                onChange={(e) => handleFieldChange(setNotes)(e.target.value)}
                                 placeholder="Thanks for your business."
                             ></textarea>
                             <span className="text-xs text-gray-500 mt-1 block">Will be displayed on the invoice</span>
@@ -419,7 +563,7 @@ const InvoiceForm = () => {
                                 className="w-full text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 p-3 bg-gray-50/50"
                                 rows="3"
                                 value={termsAndConditions}
-                                onChange={(e) => setTermsAndConditions(e.target.value)}
+                                onChange={(e) => handleFieldChange(setTermsAndConditions)(e.target.value)}
                                 placeholder="Enter the terms and conditions of your business to be displayed in your transaction"
                             ></textarea>
                         </div>
@@ -432,7 +576,7 @@ const InvoiceForm = () => {
                                 <span className="font-medium text-gray-900">{totals.subTotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-gray-600">
-                                <span>Tax Total</span>
+                                <span>GST Total</span>
                                 <span className="font-medium text-gray-900">{totals.taxTotal.toFixed(2)}</span>
                             </div>
                         </div>
@@ -454,13 +598,13 @@ const InvoiceForm = () => {
                             <span className="text-red-500">*</span> Required fields for invoicing
                         </span>
                         <div className="flex gap-3">
-                            <button type="button" onClick={() => navigate('/invoices')} className="btn-secondary">
+                            <button type="button" onClick={() => safeNavigate('/invoices')} className="btn-secondary">
                                 Cancel
                             </button>
-                            <button type="button" onClick={(e) => handleSubmit(e, 'draft')} disabled={loading} className="btn-secondary">
+                            <button type="button" onClick={(e) => checkStockAndSubmit(e, 'draft')} disabled={loading} className="btn-secondary">
                                 Save as Draft
                             </button>
-                            <button type="button" onClick={(e) => handleSubmit(e, 'send')} disabled={loading} className="btn-primary px-8 shadow-sm">
+                            <button type="button" onClick={(e) => checkStockAndSubmit(e, 'send')} disabled={loading} className="btn-primary px-8 shadow-sm">
                                 {loading ? 'Saving...' : 'Save and Send'}
                             </button>
                         </div>

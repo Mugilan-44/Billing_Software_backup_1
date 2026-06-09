@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save } from 'lucide-react';
+import { Settings, X, Info, Plus, ChevronDown, Upload, ArrowLeft, Save, Copy } from 'lucide-react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog';
+import StockWarningDialog from '../components/StockWarningDialog';
+import BulkAddModal from '../components/BulkAddModal';
+import useUnsavedChanges from '../utils/useUnsavedChanges';
 
 const InputRow = ({ label, required, children, helper }) => (
     <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
@@ -18,6 +22,7 @@ const InputRow = ({ label, required, children, helper }) => (
 
 const QuotationForm = () => {
     const navigate = useNavigate();
+    const unsaved = useUnsavedChanges();
 
     const [customers, setCustomers] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]);
@@ -43,6 +48,16 @@ const QuotationForm = () => {
     const [attachedFiles, setAttachedFiles] = useState([]);
 
     const [totals, setTotals] = useState({ subTotal: 0, taxTotal: 0, tdsAmount: 0, grandTotal: 0 });
+
+    // Dialogs
+    const [stockWarnings, setStockWarnings] = useState([]);
+    const [showStockWarning, setShowStockWarning] = useState(false);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [pendingSubmitAction, setPendingSubmitAction] = useState(null);
+
+    // Shipping address
+    const [shippingAddress, setShippingAddress] = useState({ street1: '', city: '', state: '', zipCode: '' });
+    const [showShipping, setShowShipping] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -88,10 +103,12 @@ const QuotationForm = () => {
     }, [items, adjustment, tdsPercentage]);
 
     const handleAddItemRow = () => {
+        unsaved.markDirty();
         setItems([...items, { itemId: '', name: '', quantity: 1, rate: 0, discount: 0, gstPercentage: 0 }]);
     };
 
     const removeItem = (index) => {
+        unsaved.markDirty();
         if (items.length > 1) {
             setItems(items.filter((_, i) => i !== index));
         } else {
@@ -100,6 +117,7 @@ const QuotationForm = () => {
     };
 
     const handleItemChange = (index, field, value) => {
+        unsaved.markDirty();
         const newItems = [...items];
         if (field === 'itemId') {
             const dbItem = catalogItems.find(c => c._id === value);
@@ -120,13 +138,70 @@ const QuotationForm = () => {
         setItems(newItems);
     };
 
-    const handleSubmit = async (e, type) => {
+    const handleBulkAdd = (selectedItems) => {
+        unsaved.markDirty();
+        const newLineItems = selectedItems.map(item => ({
+            itemId: item._id,
+            name: item.name,
+            quantity: 1,
+            rate: item.sellingPrice || 0,
+            discount: 0,
+            gstPercentage: item.gstPercentage || 0
+        }));
+        const existingItems = items.filter(i => i.name);
+        setItems([...existingItems, ...newLineItems]);
+    };
+
+    const copyBillingToShipping = () => {
+        const customer = customers.find(c => c._id === customerId);
+        if (customer?.billingAddress) {
+            setShippingAddress({
+                street1: customer.billingAddress.street1 || customer.billingAddress.street || '',
+                city: customer.billingAddress.city || '',
+                state: customer.billingAddress.state || '',
+                zipCode: customer.billingAddress.zipCode || ''
+            });
+            setShowShipping(true);
+            unsaved.markDirty();
+        }
+    };
+
+    const safeNavigate = (path) => {
+        unsaved.tryNavigate(() => navigate(path));
+    };
+
+    // Number input helper — allows empty so backspace works on 0
+    const numValue = (val) => (val === 0 || val === '0' || val === '' ? '' : val);
+
+    const checkStockAndSubmit = (e, type) => {
         e.preventDefault();
         const validItems = items.filter(i => i.name && i.quantity > 0);
         if (!customerId || validItems.length === 0) {
             setError('Please select a customer and add at least one valid item');
             return;
         }
+
+        const warnings = [];
+        validItems.forEach(item => {
+            const catalogItem = catalogItems.find(c => c._id === item.itemId);
+            if (catalogItem && catalogItem.type === 'Goods') {
+                const available = catalogItem.stockQuantity ?? catalogItem.openingStock ?? 0;
+                if (item.quantity > available) {
+                    warnings.push({ itemName: catalogItem.name, requested: item.quantity, available });
+                }
+            }
+        });
+
+        if (warnings.length > 0) {
+            setStockWarnings(warnings);
+            setShowStockWarning(true);
+            setPendingSubmitAction(type);
+        } else {
+            executeSubmit(type);
+        }
+    };
+
+    const executeSubmit = async (type) => {
         setLoading(true);
         setError('');
 
@@ -139,7 +214,7 @@ const QuotationForm = () => {
                 salesperson,
                 projectName,
                 subject,
-                items: validItems,
+                items: items.filter(i => i.name && i.quantity > 0),
                 adjustment: Number(adjustment),
                 tdsPercentage,
                 tdsAmount: totals.tdsAmount,
@@ -147,6 +222,7 @@ const QuotationForm = () => {
                 termsAndConditions,
                 status: type === 'draft' ? 'Draft' : 'Sent'
             });
+            unsaved.markClean();
             navigate('/quotations');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create quotation');
@@ -156,10 +232,15 @@ const QuotationForm = () => {
 
     return (
         <div className="max-w-6xl mx-auto bg-white shadow-sm rounded-lg border border-slate-200 mt-6 mb-12 overflow-hidden">
+            {/* Dialogs */}
+            <UnsavedChangesDialog isOpen={unsaved.showDialog} onDiscard={unsaved.confirmNavigation} onStay={unsaved.cancelNavigation} />
+            <StockWarningDialog isOpen={showStockWarning} warnings={stockWarnings} onContinue={() => { setShowStockWarning(false); executeSubmit(pendingSubmitAction); }} onGoBack={() => setShowStockWarning(false)} />
+            <BulkAddModal isOpen={showBulkModal} onClose={() => setShowBulkModal(false)} catalogItems={catalogItems} onAddSelected={handleBulkAdd} />
+
             {/* Header */}
             <div className="flex items-center justify-between bg-slate-50/50 border-b border-slate-200 px-6 py-4">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/quotations')}
+                    <button onClick={() => safeNavigate('/quotations')}
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
@@ -169,10 +250,10 @@ const QuotationForm = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => navigate('/quotations')} className="btn-secondary">
+                    <button type="button" onClick={() => safeNavigate('/quotations')} className="btn-secondary">
                         Cancel
                     </button>
-                    <button type="button" onClick={(e) => handleSubmit(e, 'send')} disabled={loading}
+                    <button type="button" onClick={(e) => checkStockAndSubmit(e, 'send')} disabled={loading}
                         className="btn-primary px-6 flex items-center gap-2">
                         <Save size={18} />
                         {loading ? 'Saving...' : 'Save and Send'}
@@ -250,6 +331,37 @@ const QuotationForm = () => {
                             className="input-field max-w-2xl"
                         />
                     </InputRow>
+
+                    {/* Shipping Address Section */}
+                    <div className="py-3 border-b border-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="text-sm font-medium text-slate-700">Shipping Address</label>
+                            <div className="flex items-center gap-3">
+                                {customerId && (
+                                    <button type="button" onClick={copyBillingToShipping}
+                                        className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                                        <Copy size={14} /> Copy from Billing
+                                    </button>
+                                )}
+                                <button type="button" onClick={() => setShowShipping(!showShipping)}
+                                    className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
+                                    {showShipping ? 'Hide' : 'Add Shipping'}
+                                </button>
+                            </div>
+                        </div>
+                        {showShipping && (
+                            <div className="grid grid-cols-2 gap-3 ml-48">
+                                <input type="text" className="input-field col-span-2" placeholder="Street Address"
+                                    value={shippingAddress.street1} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, street1: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="City"
+                                    value={shippingAddress.city} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, city: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="State"
+                                    value={shippingAddress.state} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, state: e.target.value })); }} />
+                                <input type="text" className="input-field" placeholder="Pin Code"
+                                    value={shippingAddress.zipCode} onChange={e => { unsaved.markDirty(); setShippingAddress(p => ({ ...p, zipCode: e.target.value })); }} />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Item Table Frame */}
@@ -294,10 +406,10 @@ const QuotationForm = () => {
                                         </td>
                                         <td className="p-3 border-l border-slate-50/50">
                                             <input
-                                                type="number"
-                                                min="1"
+                                                type="text"
+                                                inputMode="numeric"
                                                 className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent"
-                                                value={item.quantity}
+                                                value={numValue(item.quantity)}
                                                 onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                                             />
                                         </td>
@@ -305,11 +417,10 @@ const QuotationForm = () => {
                                             <div className="relative">
                                                 <span className="absolute left-0 top-1 text-slate-400 text-xs">₹</span>
                                                 <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent"
-                                                    value={item.rate}
+                                                    value={numValue(item.rate)}
                                                     onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
                                                 />
                                             </div>
@@ -317,10 +428,10 @@ const QuotationForm = () => {
                                         <td className="p-3 border-l border-slate-50/50">
                                             <div className="flex items-center">
                                                 <input
-                                                    type="number"
-                                                    min="0"
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     className="w-full text-sm border-0 border-b border-transparent focus:border-blue-400 focus:ring-0 text-right p-1 bg-transparent"
-                                                    value={item.discount}
+                                                    value={numValue(item.discount)}
                                                     onChange={(e) => handleItemChange(idx, 'discount', e.target.value)}
                                                 />
                                                 <span className="text-[10px] font-bold text-slate-400 ml-1">%</span>
@@ -351,7 +462,7 @@ const QuotationForm = () => {
                             <Plus size={14} strokeWidth={3} /> Add Line Item
                         </button>
                         <div className="h-4 w-px bg-slate-200"></div>
-                        <button type="button" className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
+                        <button type="button" onClick={() => setShowBulkModal(true)} className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">
                             Add Items in Bulk
                         </button>
                     </div>
@@ -480,13 +591,13 @@ const QuotationForm = () => {
                             <span className="text-red-500">*</span> Required fields for quotation
                         </span>
                         <div className="flex gap-3">
-                            <button type="button" onClick={() => navigate('/quotations')} className="btn-secondary">
+                            <button type="button" onClick={() => safeNavigate('/quotations')} className="btn-secondary">
                                 Cancel
                             </button>
-                            <button type="button" onClick={(e) => handleSubmit(e, 'draft')} disabled={loading} className="btn-secondary">
+                            <button type="button" onClick={(e) => checkStockAndSubmit(e, 'draft')} disabled={loading} className="btn-secondary">
                                 Save as Draft
                             </button>
-                            <button type="button" onClick={(e) => handleSubmit(e, 'send')} disabled={loading} className="btn-primary px-8 shadow-sm">
+                            <button type="button" onClick={(e) => checkStockAndSubmit(e, 'send')} disabled={loading} className="btn-primary px-8 shadow-sm">
                                 {loading ? 'Saving...' : 'Save and Send'}
                             </button>
                         </div>
